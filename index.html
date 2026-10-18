@@ -808,7 +808,10 @@ function normalizeDoc(d){
 let settings=mergeSettings({}), docs=[], current=null, dirty=false, me=null;
 
 /* =================== online database (Supabase) =================== */
-const CFG=window.ACTIVATE_CONFIG||{};
+// Built-in connection to the "Inv/Quo" Supabase project. The publishable key is public by design.
+// A valid config.js (if present) overrides these; an old placeholder config.js is ignored.
+const BUILTIN_CFG={supabaseUrl:"https://eeuhwjqotwvjkedbydgp.supabase.co",supabaseKey:"sb_publishable_NO5Kt9LMS-rAAdTJGg9TUA_u0kHHcp-"};
+const CFG=(function(){const c=window.ACTIVATE_CONFIG||{};const ok=c.supabaseUrl&&c.supabaseKey&&!/YOUR-PROJECT|PASTE/i.test(c.supabaseUrl+c.supabaseKey);return ok?c:BUILTIN_CFG})();
 let sb=null, session=null, rtChannel=null, starting=false, saving=false;
 const isAdmin=()=>!!(me&&me.role==="admin");
 const DOC_COLS="id,type,number,data,rev,created_by_name,updated_by_name,created_at,updated_at";
