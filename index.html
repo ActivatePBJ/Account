@@ -400,9 +400,9 @@
               <div class="field"><label for="fNumber" id="lblNo">Quotation No.</label><input type="text" id="fNumber" autocomplete="off"></div>
               <div class="field"><label for="fDate">Date</label><input type="date" id="fDate"></div>
               <div class="field" id="validField"><label for="fValid">Valid until</label><input type="date" id="fValid"></div>
-              <div class="field" id="payMethodField"><label for="fPayMethod">Payment method</label><input type="text" id="fPayMethod" list="payMethods"></div>
+              <div class="field" id="payMethodField"><label for="fPayMethod">Payment method</label><select id="fPayMethod"><option value="Bank Transfer">Bank Transfer</option><option value="DuitNow QR">DuitNow QR</option><option value="Cash">Cash</option><option value="E-Wallet">E-Wallet</option><option value="Credit Card">Credit Card</option><option value="Debit Card">Debit Card</option></select></div>
             </div>
-            <datalist id="payMethods"><option value="Bank Transfer"></option><option value="DuitNow QR"></option><option value="Credit / Debit Card"></option><option value="Cash"></option></datalist>
+            <datalist id="payMethods"><option value="Bank Transfer"></option><option value="DuitNow QR"></option><option value="Cash"></option><option value="E-Wallet"></option><option value="Credit Card"></option><option value="Debit Card"></option></datalist>
             <div class="row three">
               <div class="field"><label for="fEventDate">Event date</label><input type="date" id="fEventDate"></div>
               <div class="field"><label for="fEventTime">Start time</label><input type="time" id="fEventTime"></div>
@@ -412,7 +412,12 @@
               <div class="row three">
                 <div class="field"><label for="fPayFor">Payment for</label><input type="text" id="fPayFor" list="payFors"></div>
                 <div class="field"><label for="fAmount">Amount received (RM)</label><input type="number" id="fAmount" min="0" step="0.01"></div>
-                <div class="field"><label for="fPayRef">Transaction ref. (optional)</label><input type="text" id="fPayRef" placeholder="Bank ref. no."></div>
+                <div class="field"><label for="fPayRef">Transaction ref. (optional)</label><input type="text" id="fPayRef" placeholder="Bank / card / e-wallet ref."></div>
+              </div>
+              <div class="row three">
+                <div class="field"><label for="fPaidDate">Date received</label><input type="date" id="fPaidDate"></div>
+                <div class="field"><label for="fPaidTime">Time received</label><input type="time" id="fPaidTime"></div>
+                <div class="field"><label>&nbsp;</label><button type="button" class="btn sm" id="paidNowBtn">Set to now</button></div>
               </div>
               <div class="dep-row"><button type="button" class="chip" data-amt="deposit">Deposit</button><button type="button" class="chip" data-amt="balance">Balance</button><button type="button" class="chip" data-amt="full">Full amount</button></div>
               <div class="hint" id="recHint" style="margin-top:6px"></div>
@@ -763,6 +768,8 @@ function daysBetween(a,b){const x=parseISO(a),y=parseISO(b);if(!x||!y)return 0;r
 function fmtLong(s){const d=parseISO(s);return d?d.getDate()+" "+MONTHS[d.getMonth()]+" "+d.getFullYear():""}
 function fmtShort(s){const d=parseISO(s);return d?d.getDate()+" "+MONTHS[d.getMonth()].slice(0,3)+" "+d.getFullYear():""}
 function fmtTime(t){if(!t)return"";let [h,m]=t.split(":").map(Number);const ap=h>=12?"PM":"AM";h=h%12||12;return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+" "+ap}
+function nowHM(){const n=new Date();return String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0")}
+function ensurePayOpt(v){const sel=document.getElementById("fPayMethod");if(v&&![...sel.options].some(o=>o.value===v)){const o=document.createElement("option");o.value=o.textContent=v;sel.appendChild(o)}}
 function fmtEvent(d,t){if(!d)return"";return fmtLong(d)+(t?", "+fmtTime(t):"")}
 function yearOf(s){const d=parseISO(s);return d?d.getFullYear():new Date().getFullYear()}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
@@ -801,7 +808,7 @@ function normalizeDoc(d){
   d.options.forEach(o=>{o.discount=num(o.discount);o.discPct=num(o.discPct);o.items=(o.items||[]).map(it=>Object.assign({desc:"",detail:"",unit:0,qty:0,qtyLabel:""},it));});
   ["notes","payTerms","otherTerms","invTerms"].forEach(k=>{if(!Array.isArray(d[k]))d[k]=clone(DEFAULTS[k]||[])});
   if(d.showBank===undefined)d.showBank=true;
-  ["einvUuid","einvDate","einvLink","payFor","payRef","remarks","linkedId","linkedNo","linkedType"].forEach(k=>{if(d[k]==null)d[k]=""});
+  ["einvUuid","einvDate","einvLink","payFor","payRef","paidDate","paidTime","remarks","linkedId","linkedNo","linkedType"].forEach(k=>{if(d[k]==null)d[k]=""});
   d.amount=num(d.amount);
   if(!["cg","sign","both"].includes(d.signMode))d.signMode="cg";
   return d;
@@ -961,6 +968,7 @@ function blankDoc(type){
     bill:{}, options:[blankOption()], deposit:50,
     notes:clone(DEFAULTS.notes), payTerms:clone(DEFAULTS.payTerms), otherTerms:clone(DEFAULTS.otherTerms), invTerms:clone(DEFAULTS.invTerms),
     showBank:true, issName:(me&&me.display_name)||settings.issName, issPos:(me&&me.position)||settings.issPos,
+    paidDate:type==="receipt"?t:"", paidTime:type==="receipt"?nowHM():"",
     fromQuoteId:null, fromQuote:"", convertedTo:"", convertedToId:null,
     createdAt:Date.now(), updatedAt:Date.now()
   });
@@ -1119,6 +1127,7 @@ function paySummary(d,o){
     <tr><td class="k">Booking total (RM)</td><td class="v tnum">${money(t.grand)}</td></tr>
     ${prev>0?`<tr><td class="k">Previously received (RM)</td><td class="v tnum">${money(prev)}</td></tr>`:""}
     <tr class="recv"><td class="k">Amount received — this receipt (RM)</td><td class="v tnum">${money(amt)}</td></tr>
+    ${d.paidDate?`<tr><td class="k">Date &amp; time received</td><td class="v tnum">${fmtEvent(d.paidDate,d.paidTime)}</td></tr>`:""}
     <tr class="baldue"><td class="k">Balance due (RM)</td><td class="v tnum">${money(bal)}</td></tr></tbody></table>
     <div class="words">Ringgit Malaysia: ${esc(amountWords(amt))}</div>`;
 }
@@ -1133,7 +1142,7 @@ function renderPreview(){$("#sheet").innerHTML=buildSheet(current);updateRecHint
 /* =================== editor: fill & bind =================== */
 const BIND={fNumber:"number",fDate:"date",fValid:"valid",fEventDate:"eventDate",fEventTime:"eventTime",fPayMethod:"payMethod",
   fName:"bill.name",fCompany:"bill.company",fEmail:"bill.email",fPhone:"bill.phone",fAddr:"bill.address",fIssName:"issName",fIssPos:"issPos",
-  fTin:"bill.tin",fIdNo:"bill.idNo",fEinvUuid:"einvUuid",fEinvDate:"einvDate",fEinvLink:"einvLink",fPayFor:"payFor",fPayRef:"payRef",fRemarks:"remarks"};
+  fTin:"bill.tin",fIdNo:"bill.idNo",fEinvUuid:"einvUuid",fEinvDate:"einvDate",fEinvLink:"einvLink",fPayFor:"payFor",fPayRef:"payRef",fPaidDate:"paidDate",fPaidTime:"paidTime",fRemarks:"remarks"};
 const LISTS={fNotes:"notes",fPayTerms:"payTerms",fOtherTerms:"otherTerms",fInvTerms:"invTerms"};
 function getP(o,p){return p.split(".").reduce((a,k)=>a==null?a:a[k],o)}
 function setP(o,p,v){const ks=p.split(".");const last=ks.pop();ks.reduce((a,k)=>a[k],o)[last]=v}
@@ -1147,6 +1156,7 @@ function fillForm(){
   $("#eventHint").hidden=isInv;
   $("#recFields").hidden=!isRec; $("#einvCard").hidden=!isInv;
   $("#lblAddr").textContent=isInv?"Address (needed for e-Invoice)":"Address (optional)";
+  ensurePayOpt(current.payMethod);
   Object.keys(BIND).forEach(id=>{$("#"+id).value=getP(current,BIND[id])||""});
   Object.keys(LISTS).forEach(id=>{$("#"+id).value=(current[LISTS[id]]||[]).join("\n")});
   $("#fShowBank").checked=!!current.showBank;
@@ -1383,6 +1393,7 @@ function setType(type){
   current.type=type;
   current.status=type==="invoice"?"unpaid":type==="receipt"?"received":"pending";
   if(current._autoNo)current.number=nextNumber(type,current.date);
+  if(type==="receipt"&&!current.paidDate){current.paidDate=today();current.paidTime=nowHM();}
   if(type==="receipt"&&!num(current.amount)){const t=optTotals(current.options[0],current.deposit),dep=num(current.deposit);current.amount=Math.round((dep>0&&dep<100?t.dep:t.grand)*100)/100;current.payFor=dep>0&&dep<100?"Deposit ("+dep+"%)":"Full payment";}
   fillForm();changed();
 }
@@ -1490,6 +1501,7 @@ function waText(d){
     L.push("We've received your payment — thank you!");
     L.push("*"+d.number+"*"+(d.linkedNo?" (for "+d.linkedNo+")":""));
     L.push((d.payFor||"Payment")+": *RM"+money(d.amount)+"*"+(d.payMethod?" via "+d.payMethod:""));
+    if(d.paidDate)L.push("Received on: "+fmtEvent(d.paidDate,d.paidTime));
     if(d.eventDate)L.push("Event: "+fmtEvent(d.eventDate,d.eventTime));
     L.push(bal>0?"Balance due: RM"+money(bal)+" (payable on the event day before gameplay)":"Your booking is fully paid.");
     L.push("");L.push("Official receipt attached.");
@@ -1660,11 +1672,11 @@ async function offerFile(filename,data,mime){
 }
 function csvCell(v){v=String(v==null?"":v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportCSV(){
-  const rows=[["Type","Number","Date","Event date","Event time","Contact","Company","Email","Phone","Buyer TIN","Reg / ID no.","Option","Subtotal","Discount","Grand total","Deposit %","Deposit","Balance","Amount received","Payment for","Status","Payment method","Linked document","e-Invoice Unique ID"]];
+  const rows=[["Type","Number","Date","Event date","Event time","Contact","Company","Email","Phone","Buyer TIN","Reg / ID no.","Option","Subtotal","Discount","Grand total","Deposit %","Deposit","Balance","Amount received","Date & time received","Payment for","Status","Payment method","Linked document","e-Invoice Unique ID"]];
   const label={quotation:"Quotation",invoice:"Invoice",receipt:"Receipt"};
   filtered().forEach(d=>docOptions(d).forEach(o=>{const t=optTotals(o,d.deposit);
     rows.push([label[d.type],d.number,d.date,d.eventDate,d.eventTime,d.bill.name,d.bill.company,d.bill.email,d.bill.phone,d.bill.tin,d.bill.idNo,o.title,t.sub.toFixed(2),t.disc.toFixed(2),t.grand.toFixed(2),num(d.deposit),t.dep.toFixed(2),t.bal.toFixed(2),
-      d.type==="receipt"?num(d.amount).toFixed(2):receivedTotal(d.id).toFixed(2),d.type==="receipt"?d.payFor:"",statusLabel(effStatus(d)),d.type!=="quotation"?d.payMethod:"",d.fromQuote||d.convertedTo||d.linkedNo||"",d.einvUuid||""]);}));
+      d.type==="receipt"?num(d.amount).toFixed(2):receivedTotal(d.id).toFixed(2),d.type==="receipt"&&d.paidDate?fmtEvent(d.paidDate,d.paidTime):"",d.type==="receipt"?d.payFor:"",statusLabel(effStatus(d)),d.type!=="quotation"?d.payMethod:"",d.fromQuote||d.convertedTo||d.linkedNo||"",d.einvUuid||""]);}));
   offerFile("activate-pbj-documents-"+today().replace(/-/g,"")+".csv","\ufeff"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n"),"text/csv");
 }
 function exportBackup(){
@@ -1869,6 +1881,7 @@ function init(){
   $("#typeInv").addEventListener("click",()=>setType("invoice"));
   $("#typeRec").addEventListener("click",()=>setType("receipt"));
   $("#fSignMode").addEventListener("change",e=>{current.signMode=e.target.value;$("#signRow").hidden=$("#signHint").hidden=current.signMode==="cg";changed()});
+  $("#paidNowBtn").addEventListener("click",()=>{current.paidDate=today();current.paidTime=nowHM();$("#fPaidDate").value=current.paidDate;$("#fPaidTime").value=current.paidTime;changed()});
   $("#fAmount").addEventListener("input",e=>{current.amount=Math.max(0,num(e.target.value));changed()});
   $$("[data-amt]").forEach(c=>c.addEventListener("click",()=>setRecAmount(c.dataset.amt)));
   $("#fEinvLink").addEventListener("change",()=>renderPreview());
