@@ -242,6 +242,42 @@
   .ph{color:#9aa3b2}
   .pfoot{height:0}
 
+
+  /* ---------- dashboard ---------- */
+  .dash-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .dash-tools label{font-size:12px;color:var(--ink-soft);display:flex;gap:6px;align-items:center;font-weight:600}
+  .dash-tools input,.dash-tools select{width:auto}
+  .dash-tools .spacer{flex:1}
+  .dash-kpis .kpi .v{font-size:20px}
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:900px){.dash-grid{grid-template-columns:1fr}}
+  .dash-grid .card{margin:0;min-width:0}
+  .dash-empty{color:var(--ink-faint);font-size:13px;padding:8px 0}
+  .hbars{display:flex;flex-direction:column;gap:12px}
+  .hbar .top{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:5px;align-items:baseline}
+  .hbar .top b{font-weight:600;color:var(--ink);min-width:0}
+  .hbar .top span{color:var(--ink-soft);font-size:12px;white-space:nowrap}
+  .hbar .track{height:10px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+  .hbar .fill{height:100%;background:var(--accent);border-radius:0 4px 4px 0;min-width:3px}
+  .hbar:hover .fill{opacity:.85}
+  .vchart{position:relative}
+  .vbars{display:flex;align-items:flex-end;gap:6px;height:170px;border-bottom:1px solid var(--line-strong);padding-top:22px}
+  .vbar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0;cursor:default}
+  .vbar .val{font-size:10.5px;color:var(--ink-soft);white-space:nowrap;margin-bottom:3px;visibility:hidden;font-weight:600}
+  .vbar.max .val,.vbar:hover .val,.vbar:focus .val{visibility:visible}
+  .vbar .fill{width:100%;max-width:34px;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px}
+  .vbar.zero .fill{background:var(--line)}
+  .vbar:hover .fill{opacity:.85}
+  .vlabels{display:flex;gap:6px;margin-top:6px}
+  .vlabels span{flex:1;text-align:center;font-size:10.5px;color:var(--ink-faint);min-width:0}
+  table.dt{width:100%;border-collapse:collapse;font-size:13px}
+  table.dt th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.dt td{padding:7px 8px;border-bottom:1px solid var(--line)}
+  table.dt tr:last-child td{border-bottom:0}
+  table.dt .r{text-align:right;white-space:nowrap}
+  @media (max-width:560px){table.dt{font-size:12px}table.dt th,table.dt td{padding:6px 4px}table.dt th{font-size:10px;letter-spacing:.02em}.dash-grid .card-b{padding:12px}}
+  .dash-sub{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;margin:16px 0 6px}
+  .dash-note{font-size:12px;color:var(--ink-faint);margin-top:10px}
   /* ---------- history ---------- */
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
   @media (max-width:760px){.kpis{grid-template-columns:1fr 1fr}}
@@ -377,12 +413,13 @@
   </header>
 
   <nav class="tabs" role="tablist">
-    <button class="tab" role="tab" type="button" aria-selected="true" id="tabCreateBtn">Create / Edit</button>
+    <button class="tab" role="tab" type="button" aria-selected="true" id="tabDashBtn">Dashboard</button>
+    <button class="tab" role="tab" type="button" aria-selected="false" id="tabCreateBtn">Create / Edit</button>
     <button class="tab" role="tab" type="button" aria-selected="false" id="tabHistBtn">History <span class="count" id="histCount">0</span></button>
   </nav>
 
   <!-- ===================== CREATE ===================== -->
-  <section id="viewCreate">
+  <section id="viewCreate" hidden>
     <div class="editor">
       <div>
         <!-- document -->
@@ -571,6 +608,31 @@
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </div>
     <div id="histBody"></div>
+  </section>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <section id="viewDash">
+    <div class="dash-tools">
+      <div class="dep-row" id="dRange" style="margin:0">
+        <button type="button" class="chip" data-r="month">This month</button>
+        <button type="button" class="chip" data-r="lastmonth">Last month</button>
+        <button type="button" class="chip" data-r="year">This year</button>
+        <button type="button" class="chip" data-r="all">All time</button>
+      </div>
+      <label>From <input type="date" id="dFrom"></label>
+      <label>To <input type="date" id="dTo"></label>
+      <span class="spacer"></span>
+      <label>Packages from <select id="dBasis"><option value="paid">Paid bookings</option><option value="quote">Quotations sent</option></select></label>
+    </div>
+    <div class="kpis dash-kpis" id="dKpis"></div>
+    <div class="dash-grid">
+      <div class="card"><div class="card-h"><h3>Best-selling packages</h3><div class="right"><span class="hint" id="dPkgNote"></span></div></div><div class="card-b" id="dPkg"></div></div>
+      <div class="card"><div class="card-h"><h3>Lounge &amp; add-ons</h3></div><div class="card-b" id="dAdd"></div></div>
+      <div class="card"><div class="card-h"><h3>Money received — last 12 months</h3></div><div class="card-b" id="dMonth"></div></div>
+      <div class="card"><div class="card-h"><h3>Payment methods</h3></div><div class="card-b" id="dPay"></div></div>
+      <div class="card"><div class="card-h"><h3>By staff</h3></div><div class="card-b" id="dStaff"></div></div>
+      <div class="card"><div class="card-h"><h3>Top customers</h3></div><div class="card-b" id="dCust"></div></div>
+    </div>
   </section>
 </div>
 
@@ -890,7 +952,7 @@ async function startSession(){
     current=blankDoc("quotation");dirty=false;
     $("#whoAmI").textContent=(me.display_name||me.email)+" · "+(isAdmin()?"Admin":"Staff");
     applyRoleUI();
-    fillForm();renderPreview();setSaveStatus();updateHistCount();switchTab("create");
+    fillForm();renderPreview();setSaveStatus();updateHistCount();switchTab("dash");
     gate("app");
     startRealtime();
   }catch(e){gate("login","Could not load your data — "+dbErr(e)+". Try again.")}
@@ -1335,6 +1397,7 @@ function runBuild(){
     current.options=[{title:t,discount:0,items:buildItems(b,mode==="we",false)}];
   }
   current.deposit=(b.pkg==="Group"||b.pkg==="Individual")?100:50;
+  current.pkg=b.pkg;current.mins=b.mins;
   if(!isInv){
     const n=[];
     if(!current.eventDate)n.push("Event date and start time are TBC. Off-peak rates apply Mon–Fri; peak rates apply on weekends and public holidays.");
@@ -1457,7 +1520,7 @@ function doConvert(q,oi){
   const inv=blankDoc("invoice"), o=clone(q.options[oi]);
   o.title="PACKAGE BREAKDOWN";
   toInvoiceItems(o);
-  Object.assign(inv,{bill:clone(q.bill),options:[o],deposit:q.deposit,eventDate:q.eventDate,eventTime:q.eventTime,fromQuoteId:q.id,fromQuote:q.number});
+  Object.assign(inv,{bill:clone(q.bill),options:[o],deposit:q.deposit,eventDate:q.eventDate,eventTime:q.eventTime,fromQuoteId:q.id,fromQuote:q.number,pkg:q.pkg||"",mins:q.mins||""});
   current=inv;dirty=true;fillForm();renderPreview();setSaveStatus();switchTab("create");window.scrollTo({top:0});
   toast("Invoice drafted from "+q.number+" — check the event date, then Save");
 }
@@ -1489,7 +1552,7 @@ function doPayment(s,oi){
   if(got<=0&&dep>0&&dep<100){payFor="Deposit ("+dep+"%)";amount=t.dep}
   else if(got<=0){payFor="Full payment";amount=t.grand}
   else{payFor="Balance payment";amount=Math.max(0,t.grand-got)}
-  Object.assign(r,{bill:clone(s.bill),options:[o],deposit:s.deposit,eventDate:s.eventDate,eventTime:s.eventTime,payMethod:s.payMethod||settings.payMethod||"Bank Transfer",
+  Object.assign(r,{pkg:s.pkg||"",mins:s.mins||"",bill:clone(s.bill),options:[o],deposit:s.deposit,eventDate:s.eventDate,eventTime:s.eventTime,payMethod:s.payMethod||settings.payMethod||"Bank Transfer",
     linkedId:s.id,linkedNo:s.number,linkedType:s.type,optIndex:oi,payFor,amount:Math.round(amount*100)/100});
   current=r;dirty=true;fillForm();renderPreview();setSaveStatus();switchTab("create");window.scrollTo({top:0});
   toast("Receipt drafted for "+s.number+" — check the amount, then Save");
@@ -1655,7 +1718,7 @@ function renderHistory(){
         </div></td></tr>`;
     }).join("")}</tbody></table></div>`;
 }
-function updateHistCount(){$("#histCount").textContent=docs.length}
+function updateHistCount(){$("#histCount").textContent=docs.length;if(!$("#viewDash").hidden)renderDash()}
 
 /* =================== files: csv / backup =================== */
 async function offerFile(filename,data,mime){
@@ -1803,11 +1866,159 @@ function askConfirm(html,okLabel){
   });
 }
 
+
+/* =================== dashboard =================== */
+let dashRange="month";
+const PKG_NAMES={Corporate:"Corporate / team building",Party:"Birthday party",Group:"Other group",Individual:"Individual / walk-in"};
+function payDate(d){return d.paidDate||d.date||""}
+function monthEnd(ym){const [y,m]=ym.split("-").map(Number);return ym+"-"+String(new Date(y,m,0).getDate()).padStart(2,"0")}
+function setDashDates(){
+  const t=today(),y=t.slice(0,4),m=t.slice(0,7);let f="",to="";
+  if(dashRange==="month"){f=m+"-01";to=monthEnd(m)}
+  else if(dashRange==="lastmonth"){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);const lm=iso(d).slice(0,7);f=lm+"-01";to=monthEnd(lm)}
+  else if(dashRange==="year"){f=y+"-01-01";to=y+"-12-31"}
+  $("#dFrom").value=f;$("#dTo").value=to;
+}
+function dashIn(dt){const f=$("#dFrom").value||"0000-01-01",t=$("#dTo").value||"9999-12-31";return !!dt&&dt>=f&&dt<=t}
+function readItems(items){
+  const r={mins:0,pax:0,tickV:0,tickDesc:"",family:0,famV:0,lounge:null,buyout:null,extPax:0,extV:0,nonPlay:0,nonPlayV:0};
+  (items||[]).forEach(it=>{
+    const d=String(it.desc||""),q=num(it.qty),v=num(it.unit)*q;
+    if(/family pack/i.test(d)){r.family+=q;r.famV+=v}
+    else if(/buy-?out|private event/i.test(d)){r.buyout={h:(r.buyout?r.buyout.h:0)+q,v:(r.buyout?r.buyout.v:0)+v}}
+    else if(/lounge/i.test(d)){const m=d.match(/(\d+(?:\.\d+)?)\s*hr/i),h=m?+m[1]:q;r.lounge={h:(r.lounge?r.lounge.h:0)+h,rh:(r.lounge?r.lounge.rh:0)+q,v:(r.lounge?r.lounge.v:0)+v}}
+    else if(/extension/i.test(d)){r.extPax+=q;r.extV+=v}
+    else if(/non-?playing/i.test(d)){r.nonPlay+=q;r.nonPlayV+=v}
+    else if(/ticket|session|experience/i.test(d)){const m=d.match(/(\d+)\s*-?\s*min/i);if(m&&!r.mins)r.mins=+m[1];r.pax+=q;r.tickV+=v;if(!r.tickDesc)r.tickDesc=d}
+  });
+  return r;
+}
+function pkgLabel(pkg,mins,c){
+  if(c.family&&!c.pax)return "Family Pack";
+  let t=PKG_NAMES[pkg];
+  if(!t){const d=c.tickDesc;t=/corporate|team/i.test(d)?PKG_NAMES.Corporate:/party|birthday/i.test(d)?PKG_NAMES.Party:(c.pax&&c.pax<15)?PKG_NAMES.Individual:PKG_NAMES.Group}
+  const m=num(mins)||c.mins;
+  return t+(m?" · "+m+" min":"");
+}
+function bookingsAll(){
+  const map=new Map();
+  docs.filter(d=>d.type==="receipt").forEach(r=>{
+    const l=r.linkedId?docs.find(x=>x.id===r.linkedId):null;
+    const key=l&&l.type==="invoice"&&l.fromQuoteId?l.fromQuoteId:(r.linkedId||r.id);
+    if(!map.has(key))map.set(key,{key,recs:[],src:l});
+    map.get(key).recs.push(r);
+  });
+  const out=[];
+  map.forEach(b=>{
+    b.recs.sort((a,c)=>(payDate(a)+(a.paidTime||"")).localeCompare(payDate(c)+(c.paidTime||""))||(a.createdAt||0)-(c.createdAt||0));
+    const f=b.recs[0],q=docs.find(x=>x.id===b.key),o=f.options[0]||{items:[]};
+    out.push({first:payDate(f),received:b.recs.reduce((a,r)=>a+num(r.amount),0),grand:optTotals(o,f.deposit).grand,items:o.items,
+      pkg:f.pkg||(b.src&&b.src.pkg)||(q&&q.pkg)||"",mins:f.mins||(b.src&&b.src.mins)||(q&&q.mins)||"",
+      eventDate:f.eventDate||(b.src&&b.src.eventDate)||(q&&q.eventDate)||"",customer:f.bill.company||f.bill.name||"—"});
+  });
+  docs.filter(d=>d.type==="invoice"&&(d.status==="paid"||d.status==="deposit")&&receivedTotal(d.id)===0).forEach(inv=>{
+    if(map.has(inv.id)||(inv.fromQuoteId&&map.has(inv.fromQuoteId)))return;
+    const o=inv.options[0]||{items:[]},t=optTotals(o,inv.deposit);
+    out.push({first:inv.date,received:inv.status==="paid"?t.grand:t.dep,grand:t.grand,items:o.items,pkg:inv.pkg||"",mins:inv.mins||"",eventDate:inv.eventDate,customer:inv.bill.company||inv.bill.name||"—"});
+  });
+  return out;
+}
+function paymentsAll(){
+  const p=docs.filter(d=>d.type==="receipt").map(r=>({date:payDate(r),amt:num(r.amount),method:r.payMethod||"Not set",dep:/deposit/i.test(r.payFor||""),staff:r.issName||"—",customer:r.bill.company||r.bill.name||"—"}));
+  docs.filter(d=>d.type==="invoice"&&(d.status==="paid"||d.status==="deposit")&&receivedTotal(d.id)===0).forEach(inv=>{
+    const t=optTotals(inv.options[0],inv.deposit);
+    p.push({date:inv.date,amt:inv.status==="paid"?t.grand:t.dep,method:inv.payMethod||"Not set",dep:inv.status==="deposit",staff:inv.issName||"—",customer:inv.bill.company||inv.bill.name||"—"});
+  });
+  return p;
+}
+function quoteValue(q){
+  const inv=q.convertedToId?docs.find(x=>x.id===q.convertedToId):null;
+  const o=inv?inv.options[0]:q.options[0];
+  return {o,grand:optTotals(o||{items:[]},q.deposit).grand};
+}
+function hbarsHTML(rows,fmt){
+  if(!rows.length)return `<div class="dash-empty">No data in this period.</div>`;
+  const max=Math.max(...rows.map(r=>r.v))||1;
+  return `<div class="hbars">${rows.map(r=>`<div class="hbar" title="${esc(r.label)}: ${esc(fmt(r))}"><div class="top"><b>${esc(r.label)}</b><span class="tnum">${esc(fmt(r))}</span></div><div class="track"><div class="fill" style="width:${Math.max(1,r.v/max*100)}%"></div></div></div>`).join("")}</div>`;
+}
+function groupBy(list,keyFn){const m=new Map();list.forEach(x=>{const k=keyFn(x);if(!m.has(k))m.set(k,[]);m.get(k).push(x)});return m}
+function renderDash(){
+  if(!$("#dFrom").value&&!$("#dTo").value&&dashRange!=="all"&&dashRange!=="custom")setDashDates();
+  $$("#dRange [data-r]").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.r===dashRange)));
+  const quotes=docs.filter(d=>d.type==="quotation"&&dashIn(d.date));
+  const invs=docs.filter(d=>d.type==="invoice"&&dashIn(d.date));
+  const pays=paymentsAll().filter(p=>dashIn(p.date));
+  const allBk=bookingsAll(), bks=allBk.filter(b=>dashIn(b.first));
+  const sum=(a,f)=>a.reduce((t,x)=>t+num(f(x)),0);
+  const qVal=sum(quotes,q=>quoteValue(q).grand), won=quotes.filter(q=>q.status==="accepted"||receivedTotal(q.id)>0||q.convertedToId).length;
+  const recv=sum(pays,p=>p.amt), dep=pays.filter(p=>p.dep), rest=pays.filter(p=>!p.dep);
+  const pax=bks.reduce((t,b)=>t+readItems(b.items).pax,0);
+  const owe=allBk.filter(b=>b.grand-b.received>0.005), oweAmt=sum(owe,b=>b.grand-b.received);
+  const kpi=(k,v,sub)=>`<div class="kpi"><div class="k">${k}</div><div class="v tnum">${v}</div><div class="s">${sub}</div></div>`;
+  $("#dKpis").innerHTML=
+    kpi("Quotations sent",quotes.length,"RM "+money(qVal)+" quoted · "+won+" confirmed"+(quotes.length?" ("+Math.round(won/quotes.length*100)+"%)":""))+
+    kpi("Invoices issued",invs.length,"RM "+money(sum(invs,d=>optTotals(d.options[0],d.deposit).grand))+" invoiced")+
+    kpi("Total received","RM "+money(recv),pays.length+" payment"+(pays.length===1?"":"s"))+
+    kpi("Deposits received","RM "+money(sum(dep,p=>p.amt)),dep.length+" deposit"+(dep.length===1?"":"s"))+
+    kpi("Balance &amp; full payments","RM "+money(sum(rest,p=>p.amt)),rest.length+" payment"+(rest.length===1?"":"s"))+
+    kpi("Paid bookings",bks.length,pax+" players"+(bks.length?" · avg "+Math.round(pax/bks.length)+" pax":""))+
+    kpi("Avg booking value","RM "+money(bks.length?sum(bks,b=>b.grand)/bks.length:0),"Booking total, paid bookings")+
+    kpi("Balance to collect","RM "+money(oweAmt),owe.length+" booking"+(owe.length===1?"":"s")+" not fully paid (all dates)");
+
+  // packages
+  const basis=$("#dBasis").value;
+  const entries=basis==="quote"?quotes.map(q=>{const v=quoteValue(q);return {items:(v.o&&v.o.items)||[],pkg:q.pkg,mins:q.mins,value:v.grand,eventDate:q.eventDate}}):bks.map(b=>({items:b.items,pkg:b.pkg,mins:b.mins,value:b.grand,eventDate:b.eventDate}));
+  entries.forEach(e=>{e.c=readItems(e.items);e.label=pkgLabel(e.pkg,e.mins,e.c)});
+  const pk=[...groupBy(entries,e=>e.label)].map(([label,a])=>({label,v:a.length,pax:a.reduce((t,e)=>t+e.c.pax,0),val:a.reduce((t,e)=>t+e.value,0)})).sort((a,b)=>b.v-a.v||b.val-a.val);
+  $("#dPkgNote").textContent=basis==="quote"?"From quotations sent":"From paid bookings";
+  const w=basis==="quote"?"quote":"booking";
+  $("#dPkg").innerHTML=hbarsHTML(pk,r=>r.v+" "+w+(r.v>1?"s":"")+" · "+r.pax+" pax · RM "+money(r.val));
+
+  // add-ons + day type
+  const L=entries.filter(e=>e.c.lounge),B=entries.filter(e=>e.c.buyout),X=entries.filter(e=>e.c.extPax),N=entries.filter(e=>e.c.nonPlay);
+  const row=(n,cnt,detail,v)=>`<tr><td>${n}</td><td class="r tnum">${cnt}</td><td class="r tnum">${detail}</td><td class="r tnum">RM ${money(v)}</td></tr>`;
+  const days=groupBy(entries,e=>{const di=dayInfo(e.eventDate);return !di?"Date not set":di.peak?"Weekend / public holiday":"Weekday"});
+  const dayRows=["Weekday","Weekend / public holiday","Date not set"].filter(k=>days.has(k)).map(k=>{const a=days.get(k);return `<tr><td>${k}</td><td class="r tnum">${a.length}</td><td class="r tnum">${a.reduce((t,e)=>t+e.c.pax,0)} pax</td><td class="r tnum">RM ${money(a.reduce((t,e)=>t+e.value,0))}</td></tr>`}).join("");
+  $("#dAdd").innerHTML=entries.length?`<table class="dt"><thead><tr><th>Add-on</th><th class="r">${basis==="quote"?"Quotes":"Bookings"}</th><th class="r">Usage</th><th class="r">Value</th></tr></thead><tbody>
+    ${row("Private lounge",L.length,sum(L,e=>e.c.lounge.h)+" hr<br><small>"+sum(L,e=>e.c.lounge.rh)+" room-hr</small>",sum(L,e=>e.c.lounge.v))}
+    ${row("Venue buy-out",B.length,sum(B,e=>e.c.buyout.h)+" hr",sum(B,e=>e.c.buyout.v))}
+    ${row("Extensions",X.length,sum(X,e=>e.c.extPax)+" pax",sum(X,e=>e.c.extV))}
+    ${row("Non-playing entry",N.length,sum(N,e=>e.c.nonPlay)+" pax",sum(N,e=>e.c.nonPlayV))}
+    </tbody></table>
+    <div class="dash-sub">Event day</div>
+    <table class="dt"><thead><tr><th>Day type</th><th class="r">${basis==="quote"?"Quotes":"Bookings"}</th><th class="r">Players</th><th class="r">Value</th></tr></thead><tbody>${dayRows}</tbody></table>
+    <div class="dash-note">${entries.length} ${basis==="quote"?"quotation":"booking"}${entries.length>1?"s":""} · ${entries.length?Math.round(L.length/entries.length*100):0}% took the lounge</div>`
+    :`<div class="dash-empty">No data in this period.</div>`;
+
+  // last 12 months (not filtered)
+  const allPays=paymentsAll(), ms=[];
+  for(let i=11;i>=0;i--){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);ms.push(iso(d).slice(0,7))}
+  const mv=ms.map(m=>({m,v:allPays.filter(p=>p.date.startsWith(m)).reduce((t,p)=>t+p.amt,0)})), mx=Math.max(...mv.map(x=>x.v));
+  const lab=m=>MONTHS[+m.slice(5)-1].slice(0,3);
+  $("#dMonth").innerHTML=`<div class="vchart"><div class="vbars">${mv.map(x=>`<div class="vbar${x.v===mx&&mx>0?" max":""}${x.v?"":" zero"}" tabindex="0" title="${lab(x.m)} ${x.m.slice(0,4)}: RM ${money(x.v)}"><div class="val tnum">RM ${money(x.v).replace(/\.00$/,"")}</div><div class="fill" style="height:${mx?Math.max(1.5,x.v/mx*100):1.5}%"></div></div>`).join("")}</div>
+    <div class="vlabels">${mv.map(x=>`<span>${lab(x.m)}</span>`).join("")}</div></div>
+    <div class="dash-note">Total RM ${money(mv.reduce((t,x)=>t+x.v,0))} in the last 12 months. Hover a bar to see its amount.</div>`;
+
+  // payment methods
+  const pm=[...groupBy(pays,p=>p.method)].map(([label,a])=>({label,v:a.reduce((t,p)=>t+p.amt,0),n:a.length})).sort((a,b)=>b.v-a.v);
+  $("#dPay").innerHTML=hbarsHTML(pm,r=>"RM "+money(r.v)+" · "+r.n+"×");
+
+  // staff
+  const names=new Set([...quotes.map(q=>q.issName||"—"),...pays.map(p=>p.staff)]);
+  const st=[...names].map(n=>({n,q:quotes.filter(q=>(q.issName||"—")===n).length,qv:sum(quotes.filter(q=>(q.issName||"—")===n),q=>quoteValue(q).grand),r:sum(pays.filter(p=>p.staff===n),p=>p.amt)})).sort((a,b)=>b.r-a.r||b.q-a.q);
+  $("#dStaff").innerHTML=st.length?`<table class="dt"><thead><tr><th>Issued by</th><th class="r">Quotes</th><th class="r">Quoted</th><th class="r">Received</th></tr></thead><tbody>${st.map(x=>`<tr><td>${esc(x.n)}</td><td class="r tnum">${x.q}</td><td class="r tnum">RM ${money(x.qv)}</td><td class="r tnum">RM ${money(x.r)}</td></tr>`).join("")}</tbody></table>`:`<div class="dash-empty">No data in this period.</div>`;
+
+  // customers
+  const cu=[...groupBy(pays,p=>p.customer)].map(([n,a])=>({n,v:a.reduce((t,p)=>t+p.amt,0),c:a.length})).sort((a,b)=>b.v-a.v).slice(0,8);
+  $("#dCust").innerHTML=cu.length?`<table class="dt"><thead><tr><th>Customer</th><th class="r">Payments</th><th class="r">Received</th></tr></thead><tbody>${cu.map(x=>`<tr><td>${esc(x.n)}</td><td class="r tnum">${x.c}</td><td class="r tnum">RM ${money(x.v)}</td></tr>`).join("")}</tbody></table>`:`<div class="dash-empty">No data in this period.</div>`;
+}
+
 /* =================== tabs & theme =================== */
 function switchTab(n){
-  $("#viewCreate").hidden=n!=="create";$("#viewHistory").hidden=n!=="history";
-  $("#tabCreateBtn").setAttribute("aria-selected",String(n==="create"));$("#tabHistBtn").setAttribute("aria-selected",String(n==="history"));
+  $("#viewCreate").hidden=n!=="create";$("#viewHistory").hidden=n!=="history";$("#viewDash").hidden=n!=="dash";
+  $("#tabCreateBtn").setAttribute("aria-selected",String(n==="create"));$("#tabHistBtn").setAttribute("aria-selected",String(n==="history"));$("#tabDashBtn").setAttribute("aria-selected",String(n==="dash"));
   if(n==="history")renderHistory();
+  if(n==="dash")renderDash();
 }
 function curTheme(){return document.documentElement.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}
 (function(){const t=sGet(THEME_KEY);if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t)})();
@@ -1941,6 +2152,11 @@ function init(){
 
   $("#tabCreateBtn").addEventListener("click",()=>switchTab("create"));
   $("#tabHistBtn").addEventListener("click",()=>switchTab("history"));
+  $("#tabDashBtn").addEventListener("click",()=>switchTab("dash"));
+  $("#dRange").addEventListener("click",e=>{const c=e.target.closest("[data-r]");if(!c)return;dashRange=c.dataset.r;setDashDates();renderDash()});
+  ["dFrom","dTo"].forEach(id=>$("#"+id).addEventListener("change",()=>{dashRange="custom";renderDash()}));
+  $("#dBasis").addEventListener("change",renderDash);
+  if(!$("#viewDash").hidden)renderDash();
   ["search","fltType","fltStatus","fltMonth"].forEach(id=>$("#"+id).addEventListener("input",renderHistory));
   $("#histBody").addEventListener("click",e=>{
     const b=e.target.closest("[data-h]");if(!b)return;const id=b.dataset.id, d=docs.find(x=>x.id===id);
