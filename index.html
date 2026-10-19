@@ -302,7 +302,7 @@
   table.paysum td.v{text-align:right;width:30%;font-family:Arial,Helvetica,sans-serif}
   table.paysum tr.recv td{background:#d9ead3;color:#1e5631;font-weight:700}
   table.paysum tr.baldue td{font-weight:700}
-  table.paysum td.nw{white-space:nowrap}
+  table.paysum .nw{white-space:nowrap}
   table.paysum tr.fullpaid td{background:#d9ead3;color:#1e5631;font-weight:700;text-align:center;letter-spacing:.5px}
   .words{font-style:italic;margin:0 0 18px;font-size:11px}
 
@@ -1129,8 +1129,7 @@ function paySummary(d,o){
   return `<table class="bank paysum"><thead><tr><th colspan="2">PAYMENT RECEIVED</th></tr></thead><tbody>
     <tr><td class="k">Booking total (RM)</td><td class="v tnum">${money(t.grand)}</td></tr>
     ${priorReceipts(d).map(x=>`<tr><td class="k">Paid earlier: ${esc(x.payFor||"Payment")} — ${esc(x.number)}${x.paidDate||x.date?", "+fmtShort(x.paidDate||x.date):""}</td><td class="v tnum">${money(x.amount)}</td></tr>`).join("")}
-    <tr class="recv"><td class="k">Amount received (RM)</td><td class="v tnum">${money(amt)}</td></tr>
-    ${d.paidDate?`<tr><td class="k">Date &amp; time received</td><td class="v tnum nw">${fmtShort(d.paidDate)}${d.paidTime?", "+fmtTime(d.paidTime):""}</td></tr>`:""}
+    <tr class="recv"><td class="k">Amount received (RM)${d.paidDate?` <span class="nw">@ ${fmtShort(d.paidDate)}${d.paidTime?", "+fmtTime(d.paidTime):""}</span>`:""}</td><td class="v tnum">${money(amt)}</td></tr>
     <tr class="baldue"><td class="k">Balance due (RM)</td><td class="v tnum">${money(bal)}</td></tr>
     ${bal<=0.004?`<tr class="fullpaid"><td colspan="2">FULLY PAID — THANK YOU</td></tr>`:""}</tbody></table>
     <div class="words">Ringgit Malaysia: ${esc(amountWords(amt))}</div>`;
