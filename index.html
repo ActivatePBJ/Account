@@ -464,7 +464,7 @@
               <div class="field"><label for="bPkg">Booking type</label><select id="bPkg"><option value="Corporate">Corporate</option><option value="Party">Birthday</option><option value="Group">Other group</option><option value="Individual">Individual / walk-in</option></select></div>
               <div class="field"><label for="bDay">Rates for</label><select id="bDay"><option value="auto">Auto</option><option value="both">Weekday + Weekend</option><option value="wd">Weekday only</option><option value="we">Weekend only</option></select></div>
               <div class="field"><label for="bLounge">Lounge hours</label><input type="number" id="bLounge" min="0" step="0.5" value="0"></div>
-              <div class="field"><label for="bRooms">Lounge rooms</label><select id="bRooms"><option value="auto">Auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
+              <div class="field"><label for="bRooms">Lounge rooms</label><select id="bRooms"><option value="auto">Auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="buyout">Buy out (whole venue)</option></select></div>
               <div class="field"><label for="bNonPlay">Non-players</label><input type="number" id="bNonPlay" min="0" value="0"></div>
               <div class="field"><label for="bExt">Extension</label><select id="bExt"><option value="0">None</option><option value="15">+15 min</option><option value="30">+30 min</option></select></div>
             </div>
@@ -648,6 +648,7 @@
       <div class="row four" style="margin-top:10px">
         <div class="field"><label for="rLoungeOff">Lounge off-peak /room/hr</label><input type="number" id="rLoungeOff" step="0.01"></div>
         <div class="field"><label for="rLoungePeak">Lounge peak /room/hr</label><input type="number" id="rLoungePeak" step="0.01"></div>
+        <div class="field"><label for="rBuyout">Venue buy-out /hr</label><input type="number" id="rBuyout" step="0.01"></div>
         <div class="field"><label for="rNonPlay">Non-player /pax</label><input type="number" id="rNonPlay" step="0.01"></div>
         <div class="field"><label for="rExt15">+15 min /pax</label><input type="number" id="rExt15" step="0.01"></div>
         <div class="field"><label for="rExt30">+30 min /pax</label><input type="number" id="rExt30" step="0.01"></div>
@@ -720,7 +721,7 @@ const DEFAULTS={
   bankName:"OCBC Bank (Malaysia) Berhad", accName:"ACTIVATE PBJ SDN. BHD.", accNo:"787-113001-4",
   quoPrefix:"ACT-QUO", invPrefix:"ACT-INV", startYear:new Date().getFullYear(), quoStart:1, invStart:1,
   issName:"Lyah", issPos:"Head of Sales and Marketing", validDays:7, payMethod:"Bank Transfer",
-  rates:{t60:{wd:[55,53],we:[65,63]}, t90:{wd:[75,73],we:[85,83]}, ind:{t60:{wd:59,we:69},t90:{wd:79,we:89}}, loungeOff:200, loungePeak:300, nonPlay:15, ext15:15, ext30:30},
+  rates:{t60:{wd:[55,53],we:[65,63]}, t90:{wd:[75,73],we:[85,83]}, ind:{t60:{wd:59,we:69},t90:{wd:79,we:89}}, loungeOff:200, loungePeak:300, buyout:1100, nonPlay:15, ext15:15, ext30:30},
   plv:3, rv:2, priceEffective:"2026-10-17", priceApprover:"Vishu (Store Manager)", recPrefix:"ACT-REC", recStart:1, coTin:"", coMsic:"", coActivity:"",
   priceList:[
     ["Tickets - 60-minute session (weekday)",55],["Tickets - 60-minute session (weekend)",65],
@@ -1269,7 +1270,10 @@ function buildItems(b,peak,isInv){
   if(isInv)items.push({desc:"Activate Tickets: "+b.mins+" Min Experience @ Activate ("+b.pax+" pax)",detail:"",unit:rateB(b,peak),qty:b.pax,qtyLabel:""});
   else items.push({desc:"Tickets - "+b.mins+"-minute "+(pkgWord?pkgWord+" ":"")+"session",detail:"("+b.pax+" pax, "+ev+")",unit:rateB(b,peak),qty:b.pax,qtyLabel:""});
   if(b.ext>0)items.push({desc:b.ext+"-min Extension",detail:"("+b.pax+" pax)",unit:num(b.ext===15?settings.rates.ext15:settings.rates.ext30),qty:b.pax,qtyLabel:""});
-  if(b.lounge>0){
+  if(b.lounge>0&&b.rooms==="buyout"){
+    const h=Math.ceil(b.lounge);
+    items.push({desc:"Venue Buy-out (whole venue) - "+h+" hr(s)",detail:"(closed to the public)",unit:num(settings.rates.buyout),qty:h,qtyLabel:h+" hr"});
+  }else if(b.lounge>0){
     const h=Math.ceil(b.lounge), rooms=b.rooms==="auto"?roomsFor(b.pax+b.nonPlay):+b.rooms;
     items.push({desc:"Lounge Rental - "+h+" hr(s), "+rooms+" room(s)",detail:"",unit:num(peak?settings.rates.loungePeak:settings.rates.loungeOff),qty:rooms*h,qtyLabel:rooms+" rm x "+h+" hr"});
   }
@@ -1292,13 +1296,15 @@ function updateBuildPreview(){
   if(mode==="both")parts.push("Weekday RM"+money(rateB(b,false))+" / Weekend RM"+money(rateB(b,true))+" per pax");
   else parts.push((mode==="we"?"Weekend/peak":"Weekday")+" RM"+money(rateB(b,mode==="we"))+" per pax");
   if(di&&b.day==="auto")parts.push(di.dn+" = "+di.why);
-  if(b.lounge>0)parts.push((b.rooms==="auto"?roomsFor(b.pax+b.nonPlay):b.rooms)+" lounge room(s) × "+Math.ceil(b.lounge)+" hr");
+  if(b.lounge>0&&b.rooms==="buyout")parts.push("Venue buy-out × "+Math.ceil(b.lounge)+" hr (RM"+money(settings.rates.buyout)+"/hr)");
+  else if(b.lounge>0)parts.push((b.rooms==="auto"?roomsFor(b.pax+b.nonPlay):b.rooms)+" lounge room(s) × "+Math.ceil(b.lounge)+" hr");
   $("#buildPreview").textContent=parts.join(" · ");
   const w=[];
   if(b.pax&&b.pax<15&&b.pkg!=="Individual")w.push("Below the 15-pax group minimum — individual (walk-in) rates are used.");
   if(b.pax>120)w.push("Above the 120-pax maximum group size.");
-  if(b.lounge>0&&b.pax+b.nonPlay>85)w.push("Lounge pax ("+(b.pax+b.nonPlay)+") is above the 85-pax capacity of all 3 rooms.");
-  if(b.pax>80)w.push("Above 80 pax the venue closes to the public — consider adding “Store private event (per hr)” from the price list.");
+  if(b.rooms==="buyout"&&!(b.lounge>0))w.push("Buy out chosen — enter the number of hours in Lounge hours.");
+  if(b.lounge>0&&b.rooms!=="buyout"&&b.pax+b.nonPlay>85)w.push("Lounge pax ("+(b.pax+b.nonPlay)+") is above the 85-pax capacity of all 3 rooms.");
+  if(b.pax>80&&b.rooms!=="buyout")w.push("Above 80 pax the venue closes to the public — consider choosing “Buy out (whole venue)” in Lounge rooms.");
   if(di&&PH[current.eventDate])w.push("Event is on a public holiday — consider adding “Public holiday surcharge” from the price list.");
   if(b.lounge>0&&b.lounge!==Math.ceil(b.lounge))w.push("Lounge billed per whole hour: "+b.lounge+" hr → "+Math.ceil(b.lounge)+" hr.");
   $("#buildWarn").innerHTML=w.map(x=>`<div class="warn">${esc(x)}</div>`).join("");
@@ -1319,7 +1325,8 @@ function runBuild(){
   if(!isInv){
     const n=[];
     if(!current.eventDate)n.push("Event date and start time are TBC. Off-peak rates apply Mon–Fri; peak rates apply on weekends and public holidays.");
-    if(b.lounge>0){const h=Math.ceil(b.lounge),r=b.rooms==="auto"?roomsFor(b.pax+b.nonPlay):+b.rooms;n.push("Private Lounge is quoted at "+r+" room"+(r>1?"s":"")+" for "+h+" hour"+(h>1?"s":"")+". Additional hours are charged at the same hourly rate.");}
+    if(b.lounge>0&&b.rooms==="buyout"){const h=Math.ceil(b.lounge);n.push("Venue buy-out is quoted for "+h+" hour"+(h>1?"s":"")+"; the whole venue is closed to the public during this time. Additional hours are charged at the same hourly rate.");}
+    else if(b.lounge>0){const h=Math.ceil(b.lounge),r=b.rooms==="auto"?roomsFor(b.pax+b.nonPlay):+b.rooms;n.push("Private Lounge is quoted at "+r+" room"+(r>1?"s":"")+" for "+h+" hour"+(h>1?"s":"")+". Additional hours are charged at the same hourly rate.");}
     current.notes=n;
     $("#fNotes").value=n.join("\n");
   }
@@ -1702,7 +1709,7 @@ function openSettings(){
   const R=settings.rates;
   ["60","90"].forEach(d=>["wd","we"].forEach(k=>[0,1].forEach(i=>{$("#r"+d+k+i).value=R["t"+d][k][i]})));
   ["60","90"].forEach(d=>["wd","we"].forEach(k=>{$("#ri"+d+k).value=R.ind["t"+d][k]}));
-  $("#rLoungeOff").value=R.loungeOff;$("#rLoungePeak").value=R.loungePeak;$("#rNonPlay").value=R.nonPlay;$("#rExt15").value=R.ext15;$("#rExt30").value=R.ext30;
+  $("#rLoungeOff").value=R.loungeOff;$("#rLoungePeak").value=R.loungePeak;$("#rBuyout").value=R.buyout;$("#rNonPlay").value=R.nonPlay;$("#rExt15").value=R.ext15;$("#rExt30").value=R.ext30;
   $("#sPriceList").value=settings.priceList.map(p=>p[0]+" | "+p[1]).join("\n");
   pendingLogo=null;renderLogoPrev();
   const a=isAdmin();
@@ -1729,7 +1736,7 @@ async function saveSettingsForm(){
   const R=settings.rates;
   ["60","90"].forEach(d=>["wd","we"].forEach(k=>[0,1].forEach(i=>{R["t"+d][k][i]=num($("#r"+d+k+i).value)})));
   ["60","90"].forEach(d=>["wd","we"].forEach(k=>{R.ind["t"+d][k]=num($("#ri"+d+k).value)}));
-  R.loungeOff=num($("#rLoungeOff").value);R.loungePeak=num($("#rLoungePeak").value);R.nonPlay=num($("#rNonPlay").value);R.ext15=num($("#rExt15").value);R.ext30=num($("#rExt30").value);
+  R.loungeOff=num($("#rLoungeOff").value);R.loungePeak=num($("#rLoungePeak").value);R.buyout=num($("#rBuyout").value);R.nonPlay=num($("#rNonPlay").value);R.ext15=num($("#rExt15").value);R.ext30=num($("#rExt30").value);
   const pl=lines($("#sPriceList").value).map(l=>{const i=l.lastIndexOf("|");return i<0?[l,0]:[l.slice(0,i).trim(),num(l.slice(i+1))]}).filter(p=>p[0]);
   settings.priceList=pl;
   if(pendingLogo!==null)settings.logo=pendingLogo;
