@@ -165,6 +165,9 @@
   .badge.declined,.badge.expired{background:var(--surface-2);color:var(--ink-faint);border:1px solid var(--line)}
 
   .actionbar{position:sticky;top:10px;z-index:5;display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px}
+  .edit-banner{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--amber-tint);color:var(--amber);border:1px solid var(--amber);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;font-size:13px}
+  .edit-banner .t{flex:1;min-width:220px;color:var(--ink)}
+  .edit-banner .t b{color:var(--amber)}
   .actionbar .status{font-size:12px;color:var(--ink-faint);margin-right:auto;min-width:0}
   .actionbar .status b{color:var(--ink)}
   .actionbar .status.dirty b{color:var(--amber)}
@@ -420,6 +423,10 @@
 
   <!-- ===================== CREATE ===================== -->
   <section id="viewCreate" hidden>
+    <div class="edit-banner" id="editBanner" hidden>
+      <div class="t" id="editBannerText"></div>
+      <button class="btn sm" type="button" id="bannerNewBtn">Start a new one</button>
+    </div>
     <div class="editor">
       <div>
         <!-- document -->
@@ -586,6 +593,7 @@
           <button class="btn" type="button" id="payBtn">Record payment</button>
           <button class="btn" type="button" id="waBtn">WhatsApp</button>
           <button class="btn" type="button" id="printBtn">Print / PDF</button>
+          <button class="btn" type="button" id="saveNewBtn" hidden>Save as new</button>
           <button class="btn primary" type="button" id="saveBtn">Save</button>
         </div>
         <div class="paper-wrap"><div class="sheet" id="sheet"></div></div>
@@ -766,6 +774,14 @@
     <div class="m-h"><h3 id="cfTitle">Please confirm</h3></div>
     <div class="m-b" id="cfMsg"></div>
     <div class="m-f"><button class="btn" type="button" id="cfNo">Cancel</button><button class="btn primary" type="button" id="cfYes">OK</button></div>
+  </div>
+</div>
+
+<div class="modal-back" id="saveAskModal" role="dialog" aria-modal="true" aria-labelledby="saTitle">
+  <div class="modal small">
+    <div class="m-h"><h3 id="saTitle">Update or save as new?</h3></div>
+    <div class="m-b" id="saMsg"></div>
+    <div class="m-f" style="flex-wrap:wrap"><button class="btn" type="button" id="saCancel">Cancel</button><button class="btn" type="button" id="saUpdate">Update</button><button class="btn primary" type="button" id="saNew">Save as new</button></div>
   </div>
 </div>
 
@@ -1314,6 +1330,12 @@ function setSaveStatus(){
   s.classList.toggle("dirty",dirty);
   if(!current.id)s.innerHTML=dirty?"<b>Not saved yet</b>":"New "+current.type;
   else s.innerHTML=dirty?"<b>Unsaved changes</b> · "+esc(current.number):"Saved · "+esc(current.number);
+  const ed=!!current.id, w=current.type==="quotation"?"quotation":current.type==="invoice"?"invoice":"receipt";
+  $("#editBanner").hidden=!ed; $("#saveNewBtn").hidden=!ed;
+  if(ed){const who=current.bill.company||current.bill.name;
+    $("#editBannerText").innerHTML="✎ You are editing saved "+w+" <b>"+esc(current.number)+"</b>"+(who?" ("+esc(who)+")":"")+". <b>Save</b> will change this "+w+". For a different customer, press <b>Start a new one</b> or <b>Save as new</b>.";
+    $("#saveBtn").textContent="Update "+current.number;
+  }else $("#saveBtn").textContent="Save";
 }
 
 /* =================== price builder =================== */
@@ -1447,7 +1469,7 @@ async function saveCurrent(){
     if(isNew){current.id=null;if(auto){current._autoNo=true;current.number=nextNumber(current.type,current.date)}}
     toast(e.code==="conflict"?"Not saved — a colleague changed this document. Note your changes, then reopen it from History.":"Not saved — "+dbErr(e));
     return false;
-  }finally{saving=false;btn.disabled=false;btn.textContent="Save"}
+  }finally{saving=false;btn.disabled=false;btn.textContent="Save";setSaveStatus()}
 }
 async function guardDirty(){if(!dirty)return true;return askConfirm("You have unsaved changes on "+esc(current.number)+". Discard them?","Discard")}
 async function newDoc(type){
@@ -1867,6 +1889,47 @@ function askConfirm(html,okLabel){
 }
 
 
+/* =================== save guard (stop overwriting an old document) =================== */
+function askSaveMode(html,no){
+  return new Promise(res=>{
+    $("#saMsg").innerHTML=html;$("#saUpdate").textContent="Update "+no;
+    const done=v=>{["saCancel","saUpdate","saNew"].forEach(i=>$("#"+i).onclick=null);closeModal("#saveAskModal");res(v)};
+    $("#saCancel").onclick=()=>done("cancel");$("#saUpdate").onclick=()=>done("update");$("#saNew").onclick=()=>done("new");
+    openModal("#saveAskModal");
+  });
+}
+function custOf(d){return String(d.bill.company||"").trim().toLowerCase()+"|"+String(d.bill.name||"").trim().toLowerCase()}
+async function saveClick(){
+  if(current.id&&dirty){
+    const o=docs.find(x=>x.id===current.id);
+    if(o){
+      const ch=[];
+      if(custOf(o)!==custOf(current))ch.push("Customer: <b>"+esc(o.bill.company||o.bill.name||"—")+"</b> → <b>"+esc(current.bill.company||current.bill.name||"—")+"</b>");
+      if((o.eventDate||"")!==(current.eventDate||""))ch.push("Event date: <b>"+esc(o.eventDate?fmtLong(o.eventDate):"TBC")+"</b> → <b>"+esc(current.eventDate?fmtLong(current.eventDate):"TBC")+"</b>");
+      if(ch.length){
+        const a=await askSaveMode("You changed <b>"+esc(current.number)+"</b>:<br>"+ch.join("<br>")+"<br><br>Is this a <b>new</b> customer or booking? Choose <b>Save as new</b> to keep the old one safe.",current.number);
+        if(a==="cancel")return false;
+        if(a==="new")return saveAsNew();
+      }
+    }
+  }
+  return saveCurrent();
+}
+async function saveAsNew(){
+  if(!current.id)return saveCurrent();
+  const c=current, old=c.number;
+  Object.keys(c).forEach(k=>{if(k.charAt(0)==="_")delete c[k]});
+  Object.assign(c,{id:null,_autoNo:true,date:today(),createdAt:Date.now(),updatedAt:Date.now(),
+    status:c.type==="invoice"?"unpaid":c.type==="receipt"?"received":"pending",
+    fromQuoteId:null,fromQuote:"",convertedTo:"",convertedToId:null,einvUuid:"",einvDate:"",einvLink:""});
+  if(c.type==="quotation")c.valid=addDays(c.date,num(settings.validDays)||7);
+  if(c.type!=="receipt")Object.assign(c,{linkedId:"",linkedNo:"",linkedType:""});
+  c.number=nextNumber(c.type,c.date);dirty=true;
+  const ok=await saveCurrent();
+  if(ok)toast("Saved as new "+current.number+" — "+old+" was not changed");
+  return ok;
+}
+
 /* =================== dashboard =================== */
 let dashRange="month";
 const PKG_NAMES={Corporate:"Corporate / team building",Party:"Birthday party",Group:"Other group",Individual:"Individual / walk-in"};
@@ -2141,7 +2204,9 @@ function init(){
   ["bPax","bDur","bPkg","bDay","bLounge","bRooms","bNonPlay","bExt","bCustMin","bCustWd","bCustWe"].forEach(id=>{$("#"+id).addEventListener("input",updateBuildPreview);$("#"+id).addEventListener("change",updateBuildPreview)});
   $("#buildBtn").addEventListener("click",runBuild);
 
-  $("#saveBtn").addEventListener("click",saveCurrent);
+  $("#saveBtn").addEventListener("click",saveClick);
+  $("#saveNewBtn").addEventListener("click",saveAsNew);
+  $("#bannerNewBtn").addEventListener("click",()=>newDoc(current.type));
   $("#newBtn").addEventListener("click",()=>newDoc());
   $("#convertBtn").addEventListener("click",()=>startConvert());
   $("#payBtn").addEventListener("click",()=>startPayment());
@@ -2188,7 +2253,7 @@ function init(){
   });
   document.addEventListener("keydown",e=>{
     if(e.key==="Escape"){const m=$(".modal-back.open");if(m){if(m.id==="confirmModal")$("#cfNo").click();else closeModal("#"+m.id)}}
-    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"&&!$("#viewCreate").hidden){e.preventDefault();saveCurrent()}
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"&&!$("#viewCreate").hidden){e.preventDefault();saveClick()}
   });
   $("#themeBtn").addEventListener("click",()=>{const n=curTheme()==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",n);sSet(THEME_KEY,n)});
   window.addEventListener("beforeprint",()=>{if(!$("#printMount").innerHTML)$("#printMount").innerHTML=`<div class="sheet">${buildSheet(current)}</div>`});
