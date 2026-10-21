@@ -592,6 +592,7 @@
           <button class="btn" type="button" id="convertBtn">Convert to invoice</button>
           <button class="btn" type="button" id="payBtn">Record payment</button>
           <button class="btn" type="button" id="waBtn">WhatsApp</button>
+          <button class="btn" type="button" id="itinBtn" title="Open the team building itinerary, filled in from this document">Itinerary</button>
           <button class="btn" type="button" id="printBtn">Print / PDF</button>
           <button class="btn" type="button" id="saveNewBtn" hidden>Save as new</button>
           <button class="btn primary" type="button" id="saveBtn">Save</button>
@@ -1930,6 +1931,27 @@ async function saveAsNew(){
   return ok;
 }
 
+/* =================== itinerary link =================== */
+function itinOption(d){
+  const os=d.options||[]; if(os.length<2||d.type!=="quotation") return os[0]||{items:[]};
+  const di=dayInfo(d.eventDate);
+  if(di){const re=di.peak?/weekend|sat|sun|peak/i:/weekday|mon|fri|off-?peak/i;const hit=os.find(o=>re.test(o.title||""));if(hit)return hit}
+  return os[0];
+}
+function openItinerary(){
+  const d=current, c=readItems(itinOption(d).items), mins=num(d.mins)||c.mins||90;
+  let end="";
+  if(c.buyout&&d.eventTime){const [h,m]=d.eventTime.split(":").map(Number),t=h*60+m+Math.round(c.buyout.h*60);end=String(Math.floor(t/60)%24).padStart(2,"0")+":"+String(t%60).padStart(2,"0")}
+  const got=d.id?receivedTotal(d.type==="receipt"?d.linkedId:d.id):0;
+  const confirmed=d.type!=="quotation"||d.status==="accepted"||got>0||!!d.convertedToId;
+  const o={ref:d.number||"",picName:d.bill.name||"",email:d.bill.email||"",phone:d.bill.phone||"",company:d.bill.company||"",
+    eventDate:d.eventDate||"",startTime:d.eventTime||"",endTime:end,sessionMinutes:mins,pax:c.pax||"",nonPlayers:c.nonPlay||"",
+    buyout:!!c.buyout,status:confirmed?"Confirmed":"Tentative"};
+  if(!o.pax){toast("Add the players (tickets) first");return}
+  const url=new URL("itinerary.html",location.href);url.hash="d="+encodeURIComponent(JSON.stringify(o));
+  const w=window.open(url.href,"_blank");if(!w)location.href=url.href;
+}
+
 /* =================== dashboard =================== */
 let dashRange="month";
 const PKG_NAMES={Corporate:"Corporate / team building",Party:"Birthday party",Group:"Other group",Individual:"Individual / walk-in"};
@@ -2206,6 +2228,7 @@ function init(){
 
   $("#saveBtn").addEventListener("click",saveClick);
   $("#saveNewBtn").addEventListener("click",saveAsNew);
+  $("#itinBtn").addEventListener("click",openItinerary);
   $("#bannerNewBtn").addEventListener("click",()=>newDoc(current.type));
   $("#newBtn").addEventListener("click",()=>newDoc());
   $("#convertBtn").addEventListener("click",()=>startConvert());
