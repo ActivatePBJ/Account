@@ -868,7 +868,7 @@
       <div class="card"><div class="card-h"><h3>Lounge &amp; add-ons</h3></div><div class="card-b" id="dAdd"></div></div>
       <div class="card"><div class="card-h"><h3>Money received — last 12 months</h3></div><div class="card-b" id="dMonth"></div></div>
       <div class="card"><div class="card-h"><h3>Payment methods</h3></div><div class="card-b" id="dPay"></div></div>
-      <div class="card"><div class="card-h"><h3>By staff</h3></div><div class="card-b" id="dStaff"></div></div>
+      <div class="card"><div class="card-h"><h3>By staff</h3><div class="right"><span class="hint">Who created each record</span></div></div><div class="card-b" id="dStaff"></div></div>
       <div class="card"><div class="card-h"><h3>Top customers</h3></div><div class="card-b" id="dCust"></div></div>
     </div>
   </section>
@@ -1727,7 +1727,7 @@ async function duplicateDoc(id){
   if(!(await guardDirty()))return;
   const d=docs.find(x=>x.id===id);if(!d)return;
   const c=normalizeDoc(clone(d));
-  Object.assign(c,{id:null,_autoNo:true,date:today(),valid:addDays(today(),num(settings.validDays)||7),status:c.type==="invoice"?"unpaid":"pending",fromQuoteId:null,fromQuote:"",convertedTo:"",convertedToId:null,eventDate:"",eventTime:"",linkedId:"",linkedNo:"",linkedType:"",einvUuid:"",einvDate:"",einvLink:"",payRef:""});
+  Object.assign(c,{id:null,_autoNo:true,date:today(),valid:addDays(today(),num(settings.validDays)||7),status:c.type==="invoice"?"unpaid":"pending",fromQuoteId:null,fromQuote:"",convertedTo:"",convertedToId:null,eventDate:"",eventTime:"",linkedId:"",linkedNo:"",linkedType:"",einvUuid:"",einvDate:"",einvLink:"",payRef:""},issuerNow());
   c.number=nextNumber(c.type,c.date);
   current=c;dirty=true;fillForm();renderPreview();setSaveStatus();switchTab("create");window.scrollTo({top:0});
   toast("Copied as "+c.number+" — set the event date, then Save");
@@ -2131,6 +2131,7 @@ function askSaveMode(html,no){
     openModal("#saveAskModal");
   });
 }
+function issuerNow(){const m=(typeof me!=="undefined"&&me)?me:null;return {issName:(m&&m.display_name)||settings.issName,issPos:(m&&m.position)||settings.issPos}}
 function custOf(d){return String(d.bill.company||"").trim().toLowerCase()+"|"+String(d.bill.name||"").trim().toLowerCase()}
 async function saveClick(){
   if(current.id&&dirty){
@@ -2154,7 +2155,7 @@ async function saveAsNew(){
   Object.keys(c).forEach(k=>{if(k.charAt(0)==="_")delete c[k]});
   Object.assign(c,{id:null,_autoNo:true,date:today(),createdAt:Date.now(),updatedAt:Date.now(),
     status:c.type==="invoice"?"unpaid":c.type==="receipt"?"received":"pending",
-    fromQuoteId:null,fromQuote:"",convertedTo:"",convertedToId:null,einvUuid:"",einvDate:"",einvLink:""});
+    fromQuoteId:null,fromQuote:"",convertedTo:"",convertedToId:null,einvUuid:"",einvDate:"",einvLink:""},issuerNow());
   if(c.type==="quotation")c.valid=addDays(c.date,num(settings.validDays)||7);
   if(c.type!=="receipt")Object.assign(c,{linkedId:"",linkedNo:"",linkedType:""});
   c.number=nextNumber(c.type,c.date);dirty=true;
@@ -2189,6 +2190,7 @@ function openItinerary(){
 let dashRange="month";
 const PKG_NAMES={Corporate:"Corporate / team building",Party:"Birthday party",Group:"Other group",Individual:"Individual / walk-in"};
 function payDate(d){return d.paidDate||d.date||""}
+function staffOf(d){return d._by||d.issName||"—"}
 function monthEnd(ym){const [y,m]=ym.split("-").map(Number);return ym+"-"+String(new Date(y,m,0).getDate()).padStart(2,"0")}
 function setDashDates(){
   const t=today(),y=t.slice(0,4),m=t.slice(0,7);let f="",to="";
@@ -2242,10 +2244,10 @@ function bookingsAll(){
   return out;
 }
 function paymentsAll(){
-  const p=docs.filter(d=>d.type==="receipt").map(r=>({date:payDate(r),amt:num(r.amount),method:r.payMethod||"Not set",dep:/deposit/i.test(r.payFor||""),staff:r.issName||"—",customer:r.bill.company||r.bill.name||"—"}));
+  const p=docs.filter(d=>d.type==="receipt").map(r=>({date:payDate(r),amt:num(r.amount),method:r.payMethod||"Not set",dep:/deposit/i.test(r.payFor||""),staff:staffOf(r),customer:r.bill.company||r.bill.name||"—"}));
   docs.filter(d=>d.type==="invoice"&&(d.status==="paid"||d.status==="deposit")&&receivedTotal(d.id)===0).forEach(inv=>{
     const t=optTotals(inv.options[0],inv.deposit);
-    p.push({date:inv.date,amt:inv.status==="paid"?t.grand:t.dep,method:inv.payMethod||"Not set",dep:inv.status==="deposit",staff:inv.issName||"—",customer:inv.bill.company||inv.bill.name||"—"});
+    p.push({date:inv.date,amt:inv.status==="paid"?t.grand:t.dep,method:inv.payMethod||"Not set",dep:inv.status==="deposit",staff:staffOf(inv),customer:inv.bill.company||inv.bill.name||"—"});
   });
   return p;
 }
@@ -2322,9 +2324,9 @@ function renderDash(){
   $("#dPay").innerHTML=hbarsHTML(pm,r=>"RM "+money(r.v)+" · "+r.n+"×");
 
   // staff
-  const names=new Set([...quotes.map(q=>q.issName||"—"),...pays.map(p=>p.staff)]);
-  const st=[...names].map(n=>({n,q:quotes.filter(q=>(q.issName||"—")===n).length,qv:sum(quotes.filter(q=>(q.issName||"—")===n),q=>quoteValue(q).grand),r:sum(pays.filter(p=>p.staff===n),p=>p.amt)})).sort((a,b)=>b.r-a.r||b.q-a.q);
-  $("#dStaff").innerHTML=st.length?`<table class="dt"><thead><tr><th>Issued by</th><th class="r">Quotes</th><th class="r">Quoted</th><th class="r">Received</th></tr></thead><tbody>${st.map(x=>`<tr><td>${esc(x.n)}</td><td class="r tnum">${x.q}</td><td class="r tnum">RM ${money(x.qv)}</td><td class="r tnum">RM ${money(x.r)}</td></tr>`).join("")}</tbody></table>`:`<div class="dash-empty">No data in this period.</div>`;
+  const names=new Set([...quotes.map(staffOf),...pays.map(p=>p.staff)]);
+  const st=[...names].map(n=>({n,q:quotes.filter(q=>staffOf(q)===n).length,qv:sum(quotes.filter(q=>staffOf(q)===n),q=>quoteValue(q).grand),r:sum(pays.filter(p=>p.staff===n),p=>p.amt)})).sort((a,b)=>b.r-a.r||b.q-a.q);
+  $("#dStaff").innerHTML=st.length?`<table class="dt"><thead><tr><th>Created by</th><th class="r">Quotes</th><th class="r">Quoted</th><th class="r">Received</th></tr></thead><tbody>${st.map(x=>`<tr><td>${esc(x.n)}</td><td class="r tnum">${x.q}</td><td class="r tnum">RM ${money(x.qv)}</td><td class="r tnum">RM ${money(x.r)}</td></tr>`).join("")}</tbody></table>`:`<div class="dash-empty">No data in this period.</div>`;
 
   // customers
   const cu=[...groupBy(pays,p=>p.customer)].map(([n,a])=>({n,v:a.reduce((t,p)=>t+p.amt,0),c:a.length})).sort((a,b)=>b.v-a.v).slice(0,8);
