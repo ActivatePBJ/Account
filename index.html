@@ -2612,8 +2612,9 @@ function jvVoicesReady(){
     speechSynthesis.addEventListener("voiceschanged",f,{once:true});setTimeout(f,1000)}catch(e){res()}});
 }
 function jvCanSpeak(){const ua=navigator.userActivation;return !ua||ua.hasBeenActive}
-function jvNeedTap(on){const b=$("#jvVoice");if(!b)return;b.classList.toggle("needtap",!!on);b.textContent=on?"▶ Tap to hear voice":"Replay voice"}
-let jvSpeakTok=0, jvQueue=[];
+function jvNeedTap(on){const b=$("#jvVoice");if(!b)return;b.classList.toggle("needtap",!!on);b.textContent=on?"▶ Play voice":"Replay voice";
+  jvPending=on?jvLastText:"";}
+let jvSpeakTok=0, jvQueue=[], jvPending="";
 // Reliable voice: waits for voices, avoids the cancel→speak race, speaks sentence by sentence
 // (Chrome cuts long speech after ~15 s), keeps a reference so events fire, and asks for a tap
 // when the browser blocks sound (e.g. the page was reopened without a click).
@@ -2622,7 +2623,7 @@ async function jvSpeak(text,fromTap){
   const tok=++jvSpeakTok;
   try{speechSynthesis.cancel()}catch(e){}
   $("#jarvis").classList.remove("talking");
-  if(!fromTap&&!jvCanSpeak()){jvNeedTap(true);return}
+  // Always try to speak by itself. If the browser blocks it, it plays on the first click or key press anywhere.
   jvNeedTap(false);
   if(!fromTap){await jvVoicesReady();await new Promise(r=>setTimeout(r,150));if(tok!==jvSpeakTok||$("#jarvis").hidden)return}
   const v=jvVoicePick(), parts=(text.match(/[^.!?]+[.!?]*/g)||[text]).map(p=>p.trim()).filter(Boolean);
@@ -2635,7 +2636,9 @@ async function jvSpeak(text,fromTap){
   setTimeout(()=>{if(tok===jvSpeakTok&&!started&&!$("#jarvis").hidden&&!speechSynthesis.speaking)jvNeedTap(true)},2500);
 }
 // iPhone / iPad: sound must be "unlocked" by a tap — do it silently on the first tap or key press
-(function(){let done=false;const unlock=()=>{if(done||!("speechSynthesis" in window))return;done=true;
+(function(){let done=false;const unlock=e=>{if(!("speechSynthesis" in window))return;
+  if(jvPending&&!$("#jarvis").hidden&&!(e&&e.target&&e.target.closest&&e.target.closest("#jvVoice,#jvMute,#jvGo"))){const t=jvPending;jvPending="";jvSpeak(t,true);done=true;return}
+  if(done)return;done=true;
   try{const u=new SpeechSynthesisUtterance(" ");u.volume=0;speechSynthesis.speak(u)}catch(e){}};
   ["pointerdown","keydown","touchend"].forEach(ev=>document.addEventListener(ev,unlock,{capture:true,passive:true}))})();
 function jvCount(el,to,ms){
