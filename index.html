@@ -345,6 +345,93 @@
   table.paysum tr.fullpaid td{background:#d9ead3;color:#1e5631;font-weight:700;text-align:center;letter-spacing:.5px}
   .words{font-style:italic;margin:0 0 18px;font-size:11px}
 
+
+  /* ---------- ACTIVATE HUD sign-in ---------- */
+  :root{--hud:#00ffff;--hud-2:#00b8d4;--hud-deep:#03080f}
+  #gate.gate{position:relative;overflow:hidden;isolation:isolate;
+    --surface:rgba(6,18,28,.72);--surface-2:rgba(0,255,255,.06);--ink:#e6fdff;--ink-soft:#a6cfd6;--ink-faint:#74a3ad;
+    --line:rgba(0,255,255,.16);--line-strong:rgba(0,255,255,.28);--brand:#00e5f0;--brand-hover:#5ff6ff;--on-brand:#02131a;--accent:#3ff3ff;
+    --amber:#ffd27a;--amber-tint:rgba(255,190,70,.12);--green:#7dffb2;--green-tint:rgba(60,255,150,.1);
+    background:radial-gradient(1200px 700px at 50% 38%,#0a2230 0%,#050d16 55%,#02060b 100%);color:var(--ink)}
+  .hud-grid{position:absolute;inset:0;z-index:-2;pointer-events:none;
+    background-image:linear-gradient(rgba(0,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,255,.05) 1px,transparent 1px);
+    background-size:44px 44px;mask-image:radial-gradient(circle at 50% 40%,#000 0%,transparent 75%);-webkit-mask-image:radial-gradient(circle at 50% 40%,#000 0%,transparent 75%)}
+  .hud-scan{position:absolute;left:0;right:0;height:140px;z-index:-1;pointer-events:none;top:-140px;
+    background:linear-gradient(180deg,transparent,rgba(0,255,255,.07),transparent);animation:hudScan 7s linear infinite}
+  @keyframes hudScan{to{top:100%}}
+  .hud-corner{position:absolute;width:56px;height:56px;border:2px solid rgba(0,255,255,.35);z-index:-1;pointer-events:none}
+  .hud-corner.tl{top:18px;left:18px;border-right:0;border-bottom:0}.hud-corner.tr{top:18px;right:18px;border-left:0;border-bottom:0}
+  .hud-corner.bl{bottom:18px;left:18px;border-right:0;border-top:0}.hud-corner.br{bottom:18px;right:18px;border-left:0;border-top:0}
+  #gate .gate-card{max-width:400px;background:var(--surface);border:1px solid var(--line-strong);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    box-shadow:0 0 0 1px rgba(0,255,255,.05),0 0 40px rgba(0,255,255,.08),0 30px 80px rgba(0,0,0,.55);padding:30px 26px 24px;position:relative}
+  .gate-card::before,.gate-card::after{content:"";position:absolute;width:18px;height:18px;border:2px solid var(--hud)}
+  .gate-card::before{top:-1px;left:-1px;border-right:0;border-bottom:0;border-top-left-radius:var(--radius)}
+  .gate-card::after{bottom:-1px;right:-1px;border-left:0;border-top:0;border-bottom-right-radius:var(--radius)}
+  .gate-logo{position:relative;width:132px;height:132px;margin:0 auto 14px;display:grid;place-items:center}
+  .gate-logo svg.mark{width:84px;height:84px;color:var(--hud);filter:drop-shadow(0 0 10px rgba(0,255,255,.55)) drop-shadow(0 0 24px rgba(0,255,255,.25))}
+  .gate-logo .orbit{position:absolute;inset:0;border-radius:50%;border:1px dashed rgba(0,255,255,.35);animation:spin 18s linear infinite}
+  .gate-logo .orbit.o2{inset:-10px;border:2px solid transparent;border-top-color:rgba(0,255,255,.7);border-bottom-color:rgba(0,255,255,.25);animation-duration:6s;animation-direction:reverse}
+  .gate-logo .orbit.o3{inset:12px;border:1px solid rgba(0,255,255,.12);animation:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .gate-word{text-align:center;font-family:var(--font-display);font-weight:900;font-size:26px;letter-spacing:.32em;padding-left:.32em;color:#fff;text-shadow:0 0 18px rgba(0,255,255,.35)}
+  .gate-word small{display:block;font-size:11px;letter-spacing:.5em;color:var(--hud);font-weight:800;margin-top:2px}
+  #gate .gate-sub{margin:8px 0 6px;color:var(--ink-soft)}
+  .gate-status{display:flex;justify-content:center;align-items:center;gap:8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:18px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  .gate-status .dot{width:7px;height:7px;border-radius:50%;background:var(--hud);box-shadow:0 0 8px var(--hud);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.25}}
+  .gate input[type=email],.gate input[type=password]{width:100%;background:rgba(0,0,0,.35);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:11px 12px;color:var(--ink);font-size:15px;transition:border-color .15s,box-shadow .15s}
+  .gate input:focus{outline:none;border-color:var(--hud);box-shadow:0 0 0 3px rgba(0,255,255,.15),0 0 18px rgba(0,255,255,.15)}
+  .gate .btn.primary{font-family:var(--font-display);font-weight:800;letter-spacing:.18em;text-transform:uppercase;padding:12px;font-size:13px;
+    background:linear-gradient(90deg,#00d9e6,#00ffff);border:0;box-shadow:0 0 24px rgba(0,255,255,.3)}
+  .gate .btn.primary:hover{box-shadow:0 0 34px rgba(0,255,255,.5)}
+  .gate .btn:not(.primary){background:transparent}
+  .gate-foot{position:absolute;bottom:22px;left:0;right:0;text-align:center;font-size:11px;letter-spacing:.12em;color:rgba(166,207,214,.5);text-transform:uppercase;padding:0 16px}
+  @media (max-height:700px){.gate-foot{display:none}}
+  .brand .mark{width:28px;height:28px;color:#00ffff;background:#06121c;border-radius:50%;padding:4px;align-self:center;box-shadow:0 0 0 1px rgba(0,255,255,.35)}
+
+  /* ---------- J.A.R.V.I.S. briefing ---------- */
+  .jv{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:24px 16px;overflow:auto;color:#e6fdff;
+    background:radial-gradient(1000px 600px at 50% 30%,rgba(8,34,48,.97),rgba(2,6,11,.98));font-family:var(--font-body);opacity:0;transition:opacity .35s;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .jv.show{opacity:1}
+  .jv-wrap{width:100%;max-width:720px;text-align:center;position:relative}
+  .jv-reactor{position:relative;width:180px;height:180px;margin:0 auto 18px;display:grid;place-items:center}
+  .jv-reactor svg.mark{width:78px;height:78px;color:#00ffff;filter:drop-shadow(0 0 12px rgba(0,255,255,.7));transition:transform .12s}
+  .jv-reactor .r{position:absolute;border-radius:50%}
+  .jv-reactor .r1{inset:0;border:2px solid transparent;border-top-color:#00ffff;border-left-color:rgba(0,255,255,.4);animation:spin 3.5s linear infinite}
+  .jv-reactor .r2{inset:14px;border:1px dashed rgba(0,255,255,.45);animation:spin 14s linear infinite reverse}
+  .jv-reactor .r3{inset:30px;border:6px solid rgba(0,255,255,.08);box-shadow:inset 0 0 30px rgba(0,255,255,.18),0 0 40px rgba(0,255,255,.15)}
+  .jv-reactor .ticks{position:absolute;inset:-8px;border-radius:50%;background:repeating-conic-gradient(rgba(0,255,255,.5) 0 1.5deg,transparent 1.5deg 10deg);
+    mask:radial-gradient(circle,transparent 64%,#000 65%,#000 69%,transparent 70%);-webkit-mask:radial-gradient(circle,transparent 64%,#000 65%,#000 69%,transparent 70%);animation:spin 40s linear infinite}
+  .jv.talking .jv-reactor svg.mark{animation:talk .5s ease-in-out infinite}
+  @keyframes talk{50%{filter:drop-shadow(0 0 22px rgba(0,255,255,1));transform:scale(1.05)}}
+  .jv-tag{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;letter-spacing:.3em;color:#00ffff;opacity:.85}
+  .jv-title{font-family:var(--font-display);font-weight:900;font-size:28px;letter-spacing:.06em;margin:6px 0 4px;color:#fff;text-wrap:balance}
+  .jv-line{min-height:48px;max-width:560px;margin:0 auto 22px;color:#a6cfd6;font-size:15px;line-height:1.6}
+  .jv-line .cur{display:inline-block;width:8px;height:1em;background:#00ffff;vertical-align:-2px;margin-left:2px;animation:pulse 1s steps(1) infinite}
+  .jv-stats{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
+  @media (max-width:560px){.jv-stats{grid-template-columns:1fr}.jv-title{font-size:22px}}
+  .jv-stat{position:relative;text-align:left;padding:18px 18px 16px;border:1px solid rgba(0,255,255,.25);border-radius:12px;background:linear-gradient(160deg,rgba(0,255,255,.07),rgba(0,0,0,.25));
+    opacity:0;transform:translateY(10px);transition:opacity .5s,transform .5s}
+  .jv-stat.in{opacity:1;transform:none}
+  .jv-stat::before{content:"";position:absolute;top:-1px;left:16px;width:44px;height:3px;background:#00ffff;box-shadow:0 0 10px #00ffff;border-radius:2px}
+  .jv-stat .k{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#74a3ad}
+  .jv-stat .v{font-family:var(--font-display);font-weight:900;font-size:34px;line-height:1.1;margin:8px 0 4px;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(0,255,255,.35);overflow-wrap:anywhere}
+  .jv-stat .v small{font-size:16px;color:#00ffff;margin-right:6px;letter-spacing:.06em}
+  .jv-stat .s{font-size:13px;color:#a6cfd6}
+  .jv-stat .bar{height:4px;border-radius:2px;background:rgba(0,255,255,.1);margin-top:12px;overflow:hidden}
+  .jv-stat .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#00b8d4,#00ffff);box-shadow:0 0 10px #00ffff;transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
+  .jv-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;align-items:center}
+  .jv-btn{border:1px solid rgba(0,255,255,.35);background:transparent;color:#e6fdff;padding:10px 16px;border-radius:8px;font-weight:600;font-size:13px}
+  .jv-btn:hover{border-color:#00ffff;color:#00ffff}
+  .jv-btn.go{background:linear-gradient(90deg,#00d9e6,#00ffff);color:#02131a;border:0;font-family:var(--font-display);font-weight:800;letter-spacing:.14em;text-transform:uppercase;box-shadow:0 0 24px rgba(0,255,255,.35)}
+  .jv-btn.go:hover{color:#02131a;box-shadow:0 0 34px rgba(0,255,255,.55)}
+  .jv-opt{display:flex;gap:7px;align-items:center;font-size:12px;color:#74a3ad;margin-top:14px;justify-content:center}
+  .jv-opt input{accent-color:#00ffff}
+  .btn.jarvis{border-color:rgba(0,200,220,.5)}
+  .btn.jarvis svg{width:16px;height:16px;color:#00b8d4}
+  @media (prefers-reduced-motion: reduce){.hud-scan,.gate-logo .orbit,.jv-reactor .r1,.jv-reactor .r2,.jv-reactor .ticks,.gate-status .dot,.jv.talking .jv-reactor svg.mark{animation:none!important}}
+  @media print{.jv{display:none!important}}
+
   /* ---------- sign-in gate ---------- */
   .gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--ground)}
   .gate-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 24px}
@@ -376,10 +463,27 @@
   }
 </style>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <mask id="actRingMask" maskUnits="userSpaceOnUse" x="-200" y="-200" width="2000" height="2000">
+      <rect x="-200" y="-200" width="2000" height="2000" fill="#fff"/>
+      <polygon points="733,-40 867,-40 1010,200 588,200" fill="#000"/>
+      <polygon points="222,700 1378,700 1730,1235 -130,1235" fill="#000"/>
+    </mask>
+    <symbol id="actLogo" viewBox="0 0 1600 1600">
+      <circle cx="800" cy="800" r="752" fill="none" stroke="currentColor" stroke-width="96" mask="url(#actRingMask)"/>
+      <polygon points="168,1065 610,385 989,385 1431,1065 1184,1065 800,474 415,1065" fill="currentColor"/>
+    </symbol>
+  </defs>
+</svg>
 <div class="gate" id="gate">
+  <div class="hud-grid"></div><div class="hud-scan"></div>
+  <span class="hud-corner tl"></span><span class="hud-corner tr"></span><span class="hud-corner bl"></span><span class="hud-corner br"></span>
   <div class="gate-card">
-    <div class="brand"><span class="word">ACTIVATE</span><span class="pbj">PBJ</span></div>
+    <div class="gate-logo" aria-hidden="true"><span class="orbit o2"></span><span class="orbit"></span><span class="orbit o3"></span><svg class="mark"><use href="#actLogo"/></svg></div>
+    <div class="gate-word" role="heading" aria-level="1">ACTIVATE<small>PBJ · BILLING</small></div>
     <div class="gate-sub">Quotations · Invoices · Receipts</div>
+    <div class="gate-status"><span class="dot"></span><span id="gateClock">Secure terminal online</span></div>
     <div class="gate-msg" id="gateMsg" role="status" hidden></div>
     <div id="gateLoading" class="hint" style="text-align:center">Connecting…</div>
     <form id="loginForm" hidden>
@@ -401,12 +505,33 @@
       <button class="btn" type="button" id="noAccessOut" style="width:100%;justify-content:center">Sign out</button>
     </div>
   </div>
+  <div class="gate-foot">ACTIVATE PBJ SDN. BHD. · Pavilion Bukit Jalil</div>
+</div>
+
+<div class="jv" id="jarvis" role="dialog" aria-modal="true" aria-labelledby="jvTitle" hidden>
+  <div class="jv-wrap">
+    <div class="jv-reactor" aria-hidden="true"><span class="r ticks"></span><span class="r r1"></span><span class="r r2"></span><span class="r r3"></span><svg class="mark"><use href="#actLogo"/></svg></div>
+    <div class="jv-tag">J.A.R.V.I.S. · ACTIVATE BILLING INTELLIGENCE</div>
+    <h2 class="jv-title" id="jvTitle">Good day</h2>
+    <p class="jv-line" id="jvLine" aria-live="polite"></p>
+    <div class="jv-stats">
+      <div class="jv-stat" id="jvQ"><div class="k" id="jvQk">Quotations this month</div><div class="v"><small>RM</small><span data-n>0.00</span></div><div class="s" id="jvQs"></div><div class="bar"><i></i></div></div>
+      <div class="jv-stat" id="jvD"><div class="k" id="jvDk">Deposits received this month</div><div class="v"><small>RM</small><span data-n>0.00</span></div><div class="s" id="jvDs"></div><div class="bar"><i></i></div></div>
+    </div>
+    <div class="jv-actions">
+      <button class="jv-btn" type="button" id="jvVoice">Replay voice</button>
+      <button class="jv-btn" type="button" id="jvMute">Voice: on</button>
+      <button class="jv-btn go" type="button" id="jvGo">Enter dashboard</button>
+    </div>
+    <label class="jv-opt"><input type="checkbox" id="jvAuto"> Show this briefing every time I sign in</label>
+  </div>
 </div>
 
 <div class="app" id="app" hidden>
   <header class="topbar">
-    <div class="brand"><span class="word">ACTIVATE</span><span class="pbj">PBJ</span><span class="sub">Quotations · Invoices · Receipts</span></div>
+    <div class="brand"><svg class="mark" aria-hidden="true"><use href="#actLogo"/></svg><span class="word">ACTIVATE</span><span class="pbj">PBJ</span><span class="sub">Quotations · Invoices · Receipts</span></div>
     <div class="top-actions">
+      <button class="btn jarvis" id="jarvisBtn" type="button" title="Monthly briefing from J.A.R.V.I.S."><svg aria-hidden="true"><use href="#actLogo"/></svg>JARVIS</button>
       <button class="btn" id="themeBtn" type="button">Light / Dark</button>
       <span class="who" id="whoAmI"></span>
       <button class="btn" id="settingsBtn" type="button">Settings</button>
@@ -972,6 +1097,7 @@ async function startSession(){
     fillForm();renderPreview();setSaveStatus();updateHistCount();switchTab("dash");
     gate("app");
     startRealtime();
+    if(jvAutoOn())setTimeout(()=>jarvisBrief(),250);
   }catch(e){gate("login","Could not load your data — "+dbErr(e)+". Try again.")}
   finally{starting=false}
 }
@@ -2284,6 +2410,88 @@ function init(){
 }
 function start(){init();boot()}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
+
+/* =================== J.A.R.V.I.S. monthly briefing =================== */
+const JV_AUTO="activate_pbj_jarvis_auto", JV_MUTE="activate_pbj_jarvis_mute";
+function jvAutoOn(){return sGet(JV_AUTO)!=="0"}
+function jvMuted(){return sGet(JV_MUTE)==="1"}
+let jvTimers=[], jvLastText="";
+function jvClear(){jvTimers.forEach(clearTimeout);jvTimers=[];try{window.speechSynthesis&&speechSynthesis.cancel()}catch(e){}$("#jarvis").classList.remove("talking")}
+function jvStats(){
+  const now=new Date(), ym=today().slice(0,7), inM=s=>String(s||"").slice(0,7)===ym;
+  const quotes=docs.filter(d=>d.type==="quotation"&&inM(d.date));
+  const qVal=quotes.reduce((t,q)=>t+num(quoteValue(q).grand),0);
+  const deps=paymentsAll().filter(p=>p.dep&&inM(p.date));
+  const dVal=deps.reduce((t,p)=>t+num(p.amt),0);
+  const allPays=paymentsAll().filter(p=>inM(p.date)), recv=allPays.reduce((t,p)=>t+num(p.amt),0);
+  return {month:MONTHS[now.getMonth()]+" "+now.getFullYear(),monthName:MONTHS[now.getMonth()],qCount:quotes.length,qVal,dCount:deps.length,dVal,recv,day:now.getDate(),days:new Date(now.getFullYear(),now.getMonth()+1,0).getDate()};
+}
+function jvSay(n){const r=Math.round(num(n));return r.toLocaleString("en-US")+" ringgit"}
+function jvGreeting(){const h=new Date().getHours();return h<12?"Good morning":h<18?"Good afternoon":"Good evening"}
+function jvName(){if(!me)return "";const n=(me.display_name||String(me.email||"").split("@")[0]||"").trim();return n.split(/\s+/)[0]}
+function jvVoicePick(){
+  try{const v=speechSynthesis.getVoices();if(!v.length)return null;
+    const pref=[/Daniel/i,/Google UK English Male/i,/Arthur/i,/Microsoft (Ryan|George|Thomas)/i,/en-GB/i];
+    for(const p of pref){const f=v.find(x=>p.test(x.name)||p.test(x.lang));if(f)return f}
+    return v.find(x=>/^en/i.test(x.lang))||null}catch(e){return null}
+}
+function jvSpeak(text){
+  if(jvMuted()||!("speechSynthesis" in window)||!text)return;
+  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);const v=jvVoicePick();if(v){u.voice=v;u.lang=v.lang}else u.lang="en-GB";
+    u.rate=1.02;u.pitch=.9;u.onstart=()=>$("#jarvis").classList.add("talking");u.onend=u.onerror=()=>$("#jarvis").classList.remove("talking");
+    speechSynthesis.speak(u)}catch(e){}
+}
+function jvCount(el,to,ms){
+  const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduce){el.textContent=money(to);return}
+  const t0=performance.now();
+  (function step(t){const p=Math.min(1,(t-t0)/ms),e=1-Math.pow(1-p,3);el.textContent=money(to*e);if(p<1&&!$("#jarvis").hidden)requestAnimationFrame(step)})(t0);
+}
+function jvType(text,cb){
+  const el=$("#jvLine");el.innerHTML='<span></span><span class="cur"></span>';const s=el.firstChild;let i=0;
+  const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduce){s.textContent=text;cb&&cb();return}
+  (function tick(){s.textContent=text.slice(0,++i);if(i<text.length)jvTimers.push(setTimeout(tick,16));else cb&&cb()})();
+}
+function jarvisBrief(){
+  const o=$("#jarvis");jvClear();
+  const st=jvStats(), name=jvName();
+  $("#jvTitle").textContent=jvGreeting()+(name?", "+name:"")+".";
+  $("#jvQk").textContent="Quotations · "+st.month;
+  $("#jvDk").textContent="Deposits received · "+st.month;
+  $("#jvQs").textContent=st.qCount+" quotation"+(st.qCount===1?"":"s")+" issued"+(st.qCount?" · avg RM "+money(st.qVal/st.qCount):"");
+  $("#jvDs").textContent=st.dCount+" deposit payment"+(st.dCount===1?"":"s")+" · RM "+money(st.recv)+" collected in total";
+  $("#jvMute").textContent="Voice: "+(jvMuted()?"off":"on");
+  $("#jvAuto").checked=jvAutoOn();
+  ["#jvQ","#jvD"].forEach(k=>{const c=$(k);c.classList.remove("in");c.querySelector("[data-n]").textContent="0.00";c.querySelector(".bar i").style.width="0"});
+  o.hidden=false;requestAnimationFrame(()=>o.classList.add("show"));
+  const line="Systems online. Here is your billing briefing for "+st.monthName+", day "+st.day+" of "+st.days+".";
+  jvLastText=jvGreeting()+(name?", "+name:"")+". "+line+" "+
+    (st.qCount?"You have issued "+st.qCount+" quotation"+(st.qCount===1?"":"s")+" this month, totalling "+jvSay(st.qVal)+". ":"No quotations have been issued yet this month. ")+
+    (st.dCount?"Deposits received stand at "+jvSay(st.dVal)+", across "+st.dCount+" payment"+(st.dCount===1?"":"s")+".":"No deposits have been received yet this month.")+
+    (st.recv>st.dVal+0.005?" Total collections this month are "+jvSay(st.recv)+".":"");
+  jvSpeak(jvLastText);
+  jvType(line,()=>{
+    const fill=st.day/st.days*100;
+    jvTimers.push(setTimeout(()=>{const c=$("#jvQ");c.classList.add("in");jvCount(c.querySelector("[data-n]"),st.qVal,1400);c.querySelector(".bar i").style.width=Math.max(4,fill)+"%"},100));
+    jvTimers.push(setTimeout(()=>{const c=$("#jvD");c.classList.add("in");jvCount(c.querySelector("[data-n]"),st.dVal,1400);c.querySelector(".bar i").style.width=(st.qVal>0?Math.min(100,Math.max(4,st.dVal/st.qVal*100)):(st.dVal>0?100:4))+"%"},450));
+  });
+  setTimeout(()=>{try{$("#jvGo").focus()}catch(e){}},60);
+}
+function jarvisClose(){const o=$("#jarvis");if(o.hidden)return;jvClear();o.classList.remove("show");setTimeout(()=>{o.hidden=true},300)}
+(function jarvisWire(){
+  try{if("speechSynthesis" in window)speechSynthesis.onvoiceschanged=()=>{}}catch(e){}
+  $("#jarvisBtn").addEventListener("click",jarvisBrief);
+  $("#jvGo").addEventListener("click",jarvisClose);
+  $("#jvVoice").addEventListener("click",()=>{if(jvMuted()){sSet(JV_MUTE,"0");$("#jvMute").textContent="Voice: on"}jvSpeak(jvLastText)});
+  $("#jvMute").addEventListener("click",()=>{const m=!jvMuted();sSet(JV_MUTE,m?"1":"0");$("#jvMute").textContent="Voice: "+(m?"off":"on");if(m){try{speechSynthesis.cancel()}catch(e){}$("#jarvis").classList.remove("talking")}});
+  $("#jvAuto").addEventListener("change",e=>sSet(JV_AUTO,e.target.checked?"1":"0"));
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#jarvis").hidden){e.stopPropagation();jarvisClose()}},true);
+  $("#signOutBtn").addEventListener("click",()=>jarvisClose());
+  // live clock on the sign-in screen
+  const ck=()=>{const el=$("#gateClock");if(!el||$("#gate").hidden)return;const d=new Date();el.textContent="Online · "+d.toLocaleDateString("en-MY",{day:"2-digit",month:"short",year:"numeric"})+" · "+d.toLocaleTimeString("en-MY",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})};
+  ck();setInterval(ck,1000);
+})();
 })();
 </script>
 
