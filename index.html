@@ -1199,17 +1199,19 @@ async function startSession(){
     current=blankDoc("quotation");dirty=false;
     $("#whoAmI").textContent=(me.display_name||me.email)+" · "+(isAdmin()?"Admin":"Staff");
     applyRoleUI();
-    fillForm();renderPreview();setSaveStatus();updateHistCount();switchTab("dash");
-    jlStep(92,"Dashboard calculated");
+    fillForm();renderPreview();setSaveStatus();updateHistCount();switchTab(isAdmin()?"dash":"create");
+    jlStep(92,isAdmin()?"Dashboard calculated":"Workspace ready");
     gate("app");
     startRealtime();
-    jlFinish("All systems online").then(()=>{if(jvAutoOn())jarvisBrief()});
+    jlFinish("All systems online").then(()=>{if(isAdmin()&&jvAutoOn())jarvisBrief()});
   }catch(e){gate("login","Could not load your data — "+dbErr(e)+". Try again.")}
   finally{starting=false}
 }
 function applyRoleUI(){
   const a=isAdmin();
   $("#exportBtn").hidden=!a;$("#importBtn").hidden=!a;
+  $("#tabDashBtn").hidden=!a;$("#jarvisBtn").hidden=!a;
+  if(!a&&!$("#viewDash").hidden)switchTab("create");
 }
 function startRealtime(){
   stopRealtime();
@@ -1973,7 +1975,7 @@ function renderHistory(){
         </div></td></tr>`;
     }).join("")}</tbody></table></div>`;
 }
-function updateHistCount(){$("#histCount").textContent=docs.length;if(!$("#viewDash").hidden)renderDash()}
+function updateHistCount(){$("#histCount").textContent=docs.length;if(!$("#viewDash").hidden&&isAdmin())renderDash()}
 
 /* =================== files: csv / backup =================== */
 async function offerFile(filename,data,mime){
@@ -2335,6 +2337,7 @@ function renderDash(){
 
 /* =================== tabs & theme =================== */
 function switchTab(n){
+  if(n==="dash"&&me&&!isAdmin())n="create";
   $("#viewCreate").hidden=n!=="create";$("#viewHistory").hidden=n!=="history";$("#viewDash").hidden=n!=="dash";
   $("#tabCreateBtn").setAttribute("aria-selected",String(n==="create"));$("#tabHistBtn").setAttribute("aria-selected",String(n==="history"));$("#tabDashBtn").setAttribute("aria-selected",String(n==="dash"));
   if(n==="history")renderHistory();
@@ -2656,6 +2659,7 @@ function jvType(text,cb){
   (function tick(){s.textContent=text.slice(0,++i);if(i<text.length)jvTimers.push(setTimeout(tick,16));else cb&&cb()})();
 }
 function jarvisBrief(){
+  if(!isAdmin())return;
   const o=$("#jarvis");jvClear();
   const st=jvStats(), name=jvName();
   $("#jvTitle").textContent=jvGreeting()+(name?", "+name:"")+".";
