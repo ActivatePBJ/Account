@@ -206,6 +206,7 @@ details.more .grid{margin-top:12px}
         <label class="choice" id="teamChoice"><input type="radio" name="mode" id="modeTeam" value="team"><div><b>Team mode: wins</b><span id="teamSpan">Teams play for the most wins. 60 pax and below only.</span></div></label>
       </div>
       <div id="venueNote" class="note"></div>
+      <label class="choice"><input type="checkbox" id="debrief"><div><b>Add closing debrief</b><span>10 minutes at the lobby. Last item of the event.</span></div></label>
 
       <details class="more">
         <summary>Itinerary settings</summary>
@@ -278,7 +279,7 @@ function read(){
     dur:parseInt($("sessMin").value)||90, pax, nonp:parseInt($("nonp").value)||0, sessions, mode,
     gsize:GROUP_MAX, locked:parseInt($("locked").value)||29,
     fnb:$("fnb").value, brk1:parseInt($("brk1").value)||0, ref:$("ref").value.trim(), status:$("status").value,
-    gift:$("gift").value.trim()||"Goodie bag", buyout: pax>=BUYOUT_MIN || quoteBuyout };
+    gift:$("gift").value.trim()||"Goodie bag", debrief:$("debrief").checked, buyout: pax>=BUYOUT_MIN || quoteBuyout };
 }
 
 /* ---------- run of show ---------- */
@@ -311,7 +312,8 @@ function buildRos(s, G){
   }
   rows.push({d:15,a:"Band return",t:"Team leaders return their group's bands at the lobby, group by group"});
   rows.push({d:60,a:"Group debrief & merchandise",t:"Each group shares learnings; merchandise redemption",flex:[30,90],key:"deb"});
-  rows.push({d:15,a:"Winners & close",t:`Winning team announced; ${s.gift.toLowerCase()} presented; event ends`});
+  rows.push({d:15,a:"Winners & close",t:`Winning team announced; ${s.gift.toLowerCase()} presented${s.debrief?"":"; event ends"}`});
+  if(s.debrief) rows.push({d:10,a:"Closing debrief",t:"Quick debrief at the lobby; event ends",key:"cd"});
 
   // fit to event window
   let warn = "";
@@ -449,6 +451,7 @@ function render(){
         <ol><li>What they learned</li><li>What they could improve</li><li>One thing they will bring back to the workplace</li></ol></li>
       <li><b>Merchandise:</b> Players can redeem merchandise during the debrief.</li>
       <li><b>Winning team:</b> Receives a ${esc(s.gift.toLowerCase())}. The winners' gift will be confirmed soon.</li>
+      ${s.debrief?`<li><b>Closing debrief (10 minutes):</b> The event ends with a short debrief at the lobby.</li>`:""}
     </ul></div>
 
     <div class="avoid"><h3>To confirm</h3>
@@ -464,7 +467,7 @@ function render(){
 }
 
 /* ---------- form wiring ---------- */
-const FIELDS = ["pic","email","phone","company","date","start","end","sessMin","pax","nonp","locked","fnb","brk1","ref","status","gift"];
+const FIELDS = ["debrief","pic","email","phone","company","date","start","end","sessMin","pax","nonp","locked","fnb","brk1","ref","status","gift"];
 function onChange(){
   if(edited){ edited=false; setEdit(false); toast("Text edits replaced by the updated details"); }
   $("sampleNote").hidden = true;
