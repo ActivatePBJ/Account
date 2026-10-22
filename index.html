@@ -518,6 +518,9 @@
   @media (prefers-reduced-motion: reduce){.hud-in,.hud-item{animation:none!important}.hud-fx{display:none!important}}
   @media print{.hud-fx{display:none!important}}
 
+  .jv-btn.needtap{border-color:#00ffff;color:#00ffff;box-shadow:0 0 18px rgba(0,255,255,.35);animation:pulse 1.3s ease-in-out infinite}
+  @media (prefers-reduced-motion: reduce){.jv-btn.needtap{animation:none}}
+
   /* ---------- sign-in gate ---------- */
   .gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--ground)}
   .gate-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 24px}
@@ -2585,7 +2588,7 @@ const JV_AUTO="activate_pbj_jarvis_auto", JV_MUTE="activate_pbj_jarvis_mute";
 function jvAutoOn(){return sGet(JV_AUTO)!=="0"}
 function jvMuted(){return sGet(JV_MUTE)==="1"}
 let jvTimers=[], jvLastText="";
-function jvClear(){jvTimers.forEach(clearTimeout);jvTimers=[];try{window.speechSynthesis&&speechSynthesis.cancel()}catch(e){}$("#jarvis").classList.remove("talking")}
+function jvClear(){jvSpeakTok++;jvTimers.forEach(clearTimeout);jvTimers=[];try{window.speechSynthesis&&speechSynthesis.cancel()}catch(e){}$("#jarvis").classList.remove("talking")}
 function jvStats(){
   const now=new Date(), ym=today().slice(0,7), inM=s=>String(s||"").slice(0,7)===ym;
   const quotes=docs.filter(d=>d.type==="quotation"&&inM(d.date));
@@ -2604,12 +2607,37 @@ function jvVoicePick(){
     for(const p of pref){const f=v.find(x=>p.test(x.name)||p.test(x.lang));if(f)return f}
     return v.find(x=>/^en/i.test(x.lang))||null}catch(e){return null}
 }
-function jvSpeak(text){
-  if(jvMuted()||!("speechSynthesis" in window)||!text)return;
-  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);const v=jvVoicePick();if(v){u.voice=v;u.lang=v.lang}else u.lang="en-GB";
-    u.rate=1.02;u.pitch=.9;u.onstart=()=>$("#jarvis").classList.add("talking");u.onend=u.onerror=()=>$("#jarvis").classList.remove("talking");
-    speechSynthesis.speak(u)}catch(e){}
+function jvVoicesReady(){
+  return new Promise(res=>{try{if(speechSynthesis.getVoices().length)return res();let done=false;const f=()=>{if(!done){done=true;res()}};
+    speechSynthesis.addEventListener("voiceschanged",f,{once:true});setTimeout(f,1000)}catch(e){res()}});
 }
+function jvCanSpeak(){const ua=navigator.userActivation;return !ua||ua.hasBeenActive}
+function jvNeedTap(on){const b=$("#jvVoice");if(!b)return;b.classList.toggle("needtap",!!on);b.textContent=on?"▶ Tap to hear voice":"Replay voice"}
+let jvSpeakTok=0, jvQueue=[];
+// Reliable voice: waits for voices, avoids the cancel→speak race, speaks sentence by sentence
+// (Chrome cuts long speech after ~15 s), keeps a reference so events fire, and asks for a tap
+// when the browser blocks sound (e.g. the page was reopened without a click).
+async function jvSpeak(text,fromTap){
+  if(jvMuted()||!("speechSynthesis" in window)||!text)return;
+  const tok=++jvSpeakTok;
+  try{speechSynthesis.cancel()}catch(e){}
+  $("#jarvis").classList.remove("talking");
+  if(!fromTap&&!jvCanSpeak()){jvNeedTap(true);return}
+  jvNeedTap(false);
+  if(!fromTap){await jvVoicesReady();await new Promise(r=>setTimeout(r,150));if(tok!==jvSpeakTok||$("#jarvis").hidden)return}
+  const v=jvVoicePick(), parts=(text.match(/[^.!?]+[.!?]*/g)||[text]).map(p=>p.trim()).filter(Boolean);
+  let started=false;
+  jvQueue=parts.map((p,i)=>{const u=new SpeechSynthesisUtterance(p);if(v){u.voice=v;u.lang=v.lang}else u.lang="en-GB";u.rate=1.02;u.pitch=.9;
+    u.onstart=()=>{started=true;$("#jarvis").classList.add("talking")};
+    u.onend=()=>{if(i===parts.length-1)$("#jarvis").classList.remove("talking")};
+    u.onerror=e=>{$("#jarvis").classList.remove("talking");if(e&&(e.error==="not-allowed"||e.error==="audio-busy"))jvNeedTap(true)};return u});
+  try{if(speechSynthesis.paused)speechSynthesis.resume();jvQueue.forEach(u=>speechSynthesis.speak(u))}catch(e){jvNeedTap(true);return}
+  setTimeout(()=>{if(tok===jvSpeakTok&&!started&&!$("#jarvis").hidden&&!speechSynthesis.speaking)jvNeedTap(true)},2500);
+}
+// iPhone / iPad: sound must be "unlocked" by a tap — do it silently on the first tap or key press
+(function(){let done=false;const unlock=()=>{if(done||!("speechSynthesis" in window))return;done=true;
+  try{const u=new SpeechSynthesisUtterance(" ");u.volume=0;speechSynthesis.speak(u)}catch(e){}};
+  ["pointerdown","keydown","touchend"].forEach(ev=>document.addEventListener(ev,unlock,{capture:true,passive:true}))})();
 function jvCount(el,to,ms){
   const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
   if(reduce){el.textContent=money(to);return}
@@ -2652,7 +2680,7 @@ function jarvisClose(){const o=$("#jarvis");if(o.hidden)return;jvClear();o.class
   try{if("speechSynthesis" in window)speechSynthesis.onvoiceschanged=()=>{}}catch(e){}
   $("#jarvisBtn").addEventListener("click",()=>jlQuick("Compiling briefing",["Scanning quotations","Reading deposits","Preparing voice"],1300).then(jarvisBrief));
   $("#jvGo").addEventListener("click",()=>{jarvisClose();jlQuick("Opening dashboard",["Loading bookings","Ranking packages","Rendering charts"],1100).then(()=>switchTab("dash"))});
-  $("#jvVoice").addEventListener("click",()=>{if(jvMuted()){sSet(JV_MUTE,"0");$("#jvMute").textContent="Voice: on"}jvSpeak(jvLastText)});
+  $("#jvVoice").addEventListener("click",()=>{if(jvMuted()){sSet(JV_MUTE,"0");$("#jvMute").textContent="Voice: on"}jvSpeak(jvLastText,true)});
   $("#jvMute").addEventListener("click",()=>{const m=!jvMuted();sSet(JV_MUTE,m?"1":"0");$("#jvMute").textContent="Voice: "+(m?"off":"on");if(m){try{speechSynthesis.cancel()}catch(e){}$("#jarvis").classList.remove("talking")}});
   $("#jvAuto").addEventListener("change",e=>sSet(JV_AUTO,e.target.checked?"1":"0"));
   document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#jarvis").hidden){e.stopPropagation();jarvisClose()}},true);
