@@ -255,6 +255,26 @@
   .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media (max-width:900px){.dash-grid{grid-template-columns:1fr}}
   .dash-grid .card{margin:0;min-width:0}
+
+  /* ---------- revenue categories & states ---------- */
+  .dash-grid .span2{grid-column:1/-1}
+  .cat-total{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .cat-total .v{font-family:var(--font-display);font-weight:900;font-size:26px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .cat-total .s{color:var(--ink-faint);font-size:12.5px}
+  .cat-stack{display:flex;height:14px;border-radius:5px;overflow:hidden;background:var(--surface-2);margin-bottom:14px;gap:2px}
+  .cat-stack i{display:block;height:100%;min-width:3px}
+  .cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+  .cat{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface-2);min-width:0}
+  .cat .n{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--ink-soft);letter-spacing:.02em}
+  .cat .n i{width:10px;height:10px;border-radius:3px;flex:none}
+  .cat .a{font-family:var(--font-display);font-weight:800;font-size:19px;color:var(--ink);margin-top:4px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .cat .d{font-size:12px;color:var(--ink-faint)}
+  .cat.zero{opacity:.55}
+  .st-unk{margin-top:12px;font-size:12.5px;color:var(--ink-soft)}
+  .st-unk summary{cursor:pointer;color:var(--accent);font-weight:600}
+  .st-unk ul{margin:8px 0 0;padding-left:18px;max-height:180px;overflow:auto}
+  .st-unk li{margin:2px 0}
+  .st-unk a{color:var(--accent);font-size:12px;margin-left:6px;white-space:nowrap}
   .dash-empty{color:var(--ink-faint);font-size:13px;padding:8px 0}
   .hbars{display:flex;flex-direction:column;gap:12px}
   .hbar .top{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:5px;align-items:baseline}
@@ -864,11 +884,12 @@
     </div>
     <div class="kpis dash-kpis" id="dKpis"></div>
     <div class="dash-grid">
+      <div class="card span2"><div class="card-h"><h3>Sales revenue by category</h3><div class="right"><span class="hint" id="dCatNote"></span></div></div><div class="card-b" id="dCat"></div></div>
       <div class="card"><div class="card-h"><h3>Best-selling packages</h3><div class="right"><span class="hint" id="dPkgNote"></span></div></div><div class="card-b" id="dPkg"></div></div>
       <div class="card"><div class="card-h"><h3>Lounge &amp; add-ons</h3></div><div class="card-b" id="dAdd"></div></div>
       <div class="card"><div class="card-h"><h3>Money received — last 12 months</h3></div><div class="card-b" id="dMonth"></div></div>
       <div class="card"><div class="card-h"><h3>Payment methods</h3></div><div class="card-b" id="dPay"></div></div>
-      <div class="card"><div class="card-h"><h3>By staff</h3><div class="right"><span class="hint">Who created each record</span></div></div><div class="card-b" id="dStaff"></div></div>
+      <div class="card"><div class="card-h"><h3>Customers by state</h3><div class="right"><span class="hint">From billing address</span></div></div><div class="card-b" id="dState"></div></div>
       <div class="card"><div class="card-h"><h3>Top customers</h3></div><div class="card-b" id="dCust"></div></div>
     </div>
   </section>
@@ -1221,19 +1242,18 @@ async function startSession(){
     current=blankDoc("quotation");dirty=false;
     $("#whoAmI").textContent=(me.display_name||me.email)+" · "+(isAdmin()?"Admin":"Staff");
     applyRoleUI();
-    fillForm();renderPreview();setSaveStatus();updateHistCount();switchTab(isAdmin()?"dash":"create");
-    jlStep(92,isAdmin()?"Dashboard calculated":"Workspace ready");
+    fillForm();renderPreview();setSaveStatus();updateHistCount();switchTab("dash");
+    jlStep(92,"Dashboard calculated");
     gate("app");
     startRealtime();
-    jlFinish("All systems online").then(()=>{if(isAdmin()&&jvAutoOn())jarvisBrief()});
+    jlFinish("All systems online").then(()=>{if(jvAutoOn())jarvisBrief()});
   }catch(e){gate("login","Could not load your data — "+dbErr(e)+". Try again.")}
   finally{starting=false}
 }
 function applyRoleUI(){
   const a=isAdmin();
   $("#exportBtn").hidden=!a;$("#importBtn").hidden=!a;
-  $("#tabDashBtn").hidden=!a;$("#jarvisBtn").hidden=!a;
-  if(!a&&!$("#viewDash").hidden)switchTab("create");
+  $("#tabDashBtn").hidden=false;$("#jarvisBtn").hidden=false;
 }
 function startRealtime(){
   stopRealtime();
@@ -1997,7 +2017,7 @@ function renderHistory(){
         </div></td></tr>`;
     }).join("")}</tbody></table></div>`;
 }
-function updateHistCount(){$("#histCount").textContent=docs.length;if(!$("#viewDash").hidden&&isAdmin())renderDash()}
+function updateHistCount(){$("#histCount").textContent=docs.length;if(!$("#viewDash").hidden)renderDash()}
 
 /* =================== files: csv / backup =================== */
 async function offerFile(filename,data,mime){
@@ -2347,19 +2367,122 @@ function renderDash(){
   const pm=[...groupBy(pays,p=>p.method)].map(([label,a])=>({label,v:a.reduce((t,p)=>t+p.amt,0),n:a.length})).sort((a,b)=>b.v-a.v);
   $("#dPay").innerHTML=hbarsHTML(pm,r=>"RM "+money(r.v)+" · "+r.n+"×");
 
-  // staff
-  const names=new Set([...quotes.map(staffOf),...pays.map(p=>p.staff)]);
-  const st=[...names].map(n=>({n,q:quotes.filter(q=>staffOf(q)===n).length,qv:sum(quotes.filter(q=>staffOf(q)===n),q=>quoteValue(q).grand),r:sum(pays.filter(p=>p.staff===n),p=>p.amt)})).sort((a,b)=>b.r-a.r||b.q-a.q);
-  $("#dStaff").innerHTML=st.length?`<table class="dt"><thead><tr><th>Created by</th><th class="r">Quotes</th><th class="r">Quoted</th><th class="r">Received</th></tr></thead><tbody>${st.map(x=>`<tr><td>${esc(x.n)}</td><td class="r tnum">${x.q}</td><td class="r tnum">RM ${money(x.qv)}</td><td class="r tnum">RM ${money(x.r)}</td></tr>`).join("")}</tbody></table>`:`<div class="dash-empty">No data in this period.</div>`;
+  renderCatRevenue(entries,basis);
+  renderStates(pays,quotes);
 
   // customers
   const cu=[...groupBy(pays,p=>p.customer)].map(([n,a])=>({n,v:a.reduce((t,p)=>t+p.amt,0),c:a.length})).sort((a,b)=>b.v-a.v).slice(0,8);
   $("#dCust").innerHTML=cu.length?`<table class="dt"><thead><tr><th>Customer</th><th class="r">Payments</th><th class="r">Received</th></tr></thead><tbody>${cu.map(x=>`<tr><td>${esc(x.n)}</td><td class="r tnum">${x.c}</td><td class="r tnum">RM ${money(x.v)}</td></tr>`).join("")}</tbody></table>`:`<div class="dash-empty">No data in this period.</div>`;
 }
 
+
+/* =================== Sales revenue by category =================== */
+const CATS=[
+  {k:"t60",n:"60-min sessions",c:"#00c2d6"},
+  {k:"t90",n:"90-min sessions",c:"#3e5bf2"},
+  {k:"tOther",n:"Sessions (other / not set)",c:"#7f8ca3"},
+  {k:"family",n:"Family packs",c:"#9b6bff"},
+  {k:"lounge",n:"Private lounge",c:"#f0a020"},
+  {k:"buyout",n:"Venue buy-out / private event",c:"#e5487a"},
+  {k:"ext",n:"Extensions",c:"#2fbf71"},
+  {k:"other",n:"Others (entry, decor, add-ons)",c:"#b0a48a"}
+];
+function catOf(desc,fallbackMins){
+  const d=String(desc||"");
+  if(/family pack/i.test(d))return "family";
+  if(/buy-?out|private event/i.test(d))return "buyout";
+  if(/lounge/i.test(d))return "lounge";
+  if(/extension/i.test(d))return "ext";
+  if(/non-?playing/i.test(d))return "other";
+  if(/ticket|session|experience|game ?play/i.test(d)){
+    const m=d.match(/(\d+)\s*-?\s*min/i), mins=m?+m[1]:num(fallbackMins);
+    return mins===60?"t60":mins===90?"t90":"tOther";
+  }
+  return "other";
+}
+function renderCatRevenue(entries,basis){
+  const tot={},pax={},cnt={};CATS.forEach(c=>{tot[c.k]=0;pax[c.k]=0;cnt[c.k]=0});
+  entries.forEach(e=>{
+    const items=e.items||[], sub=items.reduce((t,it)=>t+num(it.unit)*num(it.qty),0);
+    const f=sub>0?num(e.value)/sub:0, seen={};   // spread any discount across the lines
+    items.forEach(it=>{const v=num(it.unit)*num(it.qty);if(!v)return;const k=catOf(it.desc,e.mins);tot[k]+=v*f;
+      if(/^t/.test(k))pax[k]+=num(it.qty);if(!seen[k]){cnt[k]++;seen[k]=1}});
+  });
+  const all=CATS.reduce((t,c)=>t+tot[c.k],0);
+  $("#dCatNote").textContent=basis==="quote"?"From quotations sent (value quoted)":"From paid bookings (booking value)";
+  if(all<=0){$("#dCat").innerHTML=`<div class="dash-empty">No sales in this period.</div>`;return}
+  const shown=CATS.filter(c=>tot[c.k]>0||["t60","t90","lounge","other"].includes(c.k));
+  const w=basis==="quote"?"quote":"booking";
+  $("#dCat").innerHTML=`<div class="cat-total"><span class="v">RM ${money(all)}</span><span class="s">total sales revenue · ${entries.length} ${w}${entries.length===1?"":"s"}</span></div>
+    <div class="cat-stack" role="img" aria-label="Share of revenue by category">${CATS.filter(c=>tot[c.k]>0).map(c=>`<i style="background:${c.c};width:${tot[c.k]/all*100}%" title="${esc(c.n)}: RM ${money(tot[c.k])} (${Math.round(tot[c.k]/all*100)}%)"></i>`).join("")}</div>
+    <div class="cat-grid">${shown.map(c=>`<div class="cat${tot[c.k]>0?"":" zero"}"><div class="n"><i style="background:${c.c}"></i>${esc(c.n)}</div>
+      <div class="a">RM ${money(tot[c.k])}</div><div class="d">${Math.round(tot[c.k]/all*100)}% · ${cnt[c.k]} ${w}${cnt[c.k]===1?"":"s"}${/^t/.test(c.k)&&pax[c.k]?" · "+pax[c.k]+" pax":""}</div></div>`).join("")}</div>
+    <div class="dash-note">Use “Packages from” above to switch between paid bookings and quotations. Discounts are spread across each booking's lines.</div>`;
+}
+
+/* =================== Customers by state (from billing address) =================== */
+const MY_STATES=["Kuala Lumpur","Selangor","Putrajaya","Johor","Penang","Perak","Negeri Sembilan","Melaka","Pahang","Kedah","Kelantan","Terengganu","Perlis","Sabah","Sarawak","Labuan"];
+const ST_WORDS=[
+  [/\bputrajaya\b/i,"Putrajaya"],[/\blabuan\b/i,"Labuan"],
+  [/kuala\s*lumpur|\bw\.?\s*p\.?\s*kl\b|\bkl\b|bukit jalil|cheras|kepong|setapak|bangsar|mont\s*kiara|sentul|wangsa maju|sri petaling|bukit bintang|titiwangsa|brickfields|segambut|desa park/i,"Kuala Lumpur"],
+  [/selangor|petaling jaya|\bp\.?\s*j\b|shah alam|subang|puchong|klang|cyberjaya|seri kembangan|serdang|kajang|bangi|rawang|ampang|sungai buloh|damansara|semenyih|sepang|selayang|gombak|banting|kuala selangor|dengkil|sunway|ara damansara|kota damansara|setia alam|cyberjaya/i,"Selangor"],
+  [/johor|\bjb\b|iskandar puteri|nusajaya|skudai|batu pahat|muar|kluang|kulai|pasir gudang|segamat/i,"Johor"],
+  [/penang|pulau pinang|george\s*town|butterworth|bayan lepas|bukit mertajam|seberang perai/i,"Penang"],
+  [/perak|\bipoh\b|taiping|teluk intan|kampar|lumut|sitiawan/i,"Perak"],
+  [/negeri sembilan|seremban|nilai|port dickson/i,"Negeri Sembilan"],
+  [/melaka|malacca/i,"Melaka"],[/pahang|kuantan|bentong|genting|cameron highlands|temerloh/i,"Pahang"],
+  [/kedah|alor setar|sungai petani|langkawi|kulim/i,"Kedah"],[/kelantan|kota bharu/i,"Kelantan"],
+  [/terengganu|kuala terengganu|kemaman/i,"Terengganu"],[/perlis|kangar/i,"Perlis"],
+  [/sabah|kota kinabalu|sandakan|tawau/i,"Sabah"],[/sarawak|kuching|miri|sibu|bintulu/i,"Sarawak"]
+];
+function stateFromPostcode(pc){
+  const n=+pc, p=Math.floor(n/1000);
+  if(p>=1&&p<=2)return "Perlis"; if(p>=5&&p<=9)return "Kedah"; if(p>=10&&p<=14)return "Penang";
+  if(p>=15&&p<=18)return "Kelantan"; if(p>=20&&p<=24)return "Terengganu"; if((p>=25&&p<=28)||p===39||p===49||p===69)return "Pahang";
+  if(p>=30&&p<=36)return "Perak"; if(p>=40&&p<=48)return "Selangor"; if(p===62)return "Putrajaya";
+  if(p>=50&&p<=60)return "Kuala Lumpur"; if(p>=63&&p<=68)return "Selangor"; if(p>=70&&p<=73)return "Negeri Sembilan";
+  if(p>=75&&p<=78)return "Melaka"; if(p>=79&&p<=86)return "Johor"; if(p===87)return "Labuan";
+  if(p>=88&&p<=91)return "Sabah"; if(p>=93&&p<=98)return "Sarawak"; return "";
+}
+function stateOfText(t){
+  t=String(t||"");if(!t.trim())return "";
+  if(/\bsingapore\b/i.test(t))return "Overseas";
+  const pc=t.match(/\b(\d{5})\b/);
+  // a full state name wins; then the postcode; then a known town
+  for(const s of MY_STATES){if(new RegExp("\\b"+s.replace(/ /g,"\\s*")+"\\b","i").test(t))return s}
+  if(/pulau pinang/i.test(t))return "Penang";
+  if(pc){const s=stateFromPostcode(pc[1]);if(s)return s}
+  for(const [re,s] of ST_WORDS){if(re.test(t))return s}
+  return "";
+}
+let custStateCache=null, custStateCount=-1;
+function custStates(){
+  if(custStateCache&&custStateCount===docs.length)return custStateCache;
+  const m=new Map();
+  [...docs].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).forEach(d=>{
+    const name=d.bill.company||d.bill.name||"";if(!name)return;
+    const s=stateOfText(d.bill.address);
+    if(!m.has(name)||(!m.get(name)&&s))m.set(name,s);
+  });
+  custStateCache=m;custStateCount=docs.length;return m;
+}
+function renderStates(pays,quotes){
+  const cs=custStates(), rows=new Map(), unknown=new Map();
+  const row=s=>{if(!rows.has(s))rows.set(s,{s,cust:new Set(),q:0,qv:0,r:0});return rows.get(s)};
+  pays.forEach(p=>{const s=cs.get(p.customer)||"Not known";const r=row(s);r.cust.add(p.customer);r.r+=num(p.amt);if(s==="Not known"&&p.customer!=="—")unknown.set(p.customer,1)});
+  quotes.forEach(q=>{const n=q.bill.company||q.bill.name||"—",s=cs.get(n)||"Not known";const r=row(s);r.cust.add(n);r.q++;r.qv+=num(quoteValue(q).grand);if(s==="Not known"&&n!=="—")unknown.set(n,1)});
+  const list=[...rows.values()].sort((a,b)=>(a.s==="Not known")-(b.s==="Not known")||b.r-a.r||b.qv-a.qv);
+  if(!list.length){$("#dState").innerHTML=`<div class="dash-empty">No data in this period.</div>`;return}
+  const g=n=>"https://www.google.com/search?q="+encodeURIComponent(n+" Malaysia address");
+  const unk=[...unknown.keys()].sort();
+  $("#dState").innerHTML=`<table class="dt"><thead><tr><th>State</th><th class="r">Customers</th><th class="r">Quotes</th><th class="r">Quoted</th><th class="r">Received</th></tr></thead><tbody>
+    ${list.map(x=>`<tr><td>${esc(x.s)}</td><td class="r tnum">${x.cust.size}</td><td class="r tnum">${x.q}</td><td class="r tnum">RM ${money(x.qv)}</td><td class="r tnum">RM ${money(x.r)}</td></tr>`).join("")}</tbody></table>
+    ${unk.length?`<details class="st-unk"><summary>${unk.length} customer${unk.length===1?"":"s"} without a usable address — look up on Google</summary><ul>${unk.slice(0,60).map(n=>`<li>${esc(n)}<a href="${g(n)}" target="_blank" rel="noopener">Search ↗</a></li>`).join("")}</ul>
+      <div class="hint" style="margin-top:6px">Add the address (with postcode) to their quotation or invoice and they'll move to the right state automatically.</div></details>`:""}`;
+}
+
 /* =================== tabs & theme =================== */
 function switchTab(n){
-  if(n==="dash"&&me&&!isAdmin())n="create";
   $("#viewCreate").hidden=n!=="create";$("#viewHistory").hidden=n!=="history";$("#viewDash").hidden=n!=="dash";
   $("#tabCreateBtn").setAttribute("aria-selected",String(n==="create"));$("#tabHistBtn").setAttribute("aria-selected",String(n==="history"));$("#tabDashBtn").setAttribute("aria-selected",String(n==="dash"));
   if(n==="history")renderHistory();
@@ -2729,10 +2852,9 @@ function jvType(text,cb){
   (function tick(){s.textContent=text.slice(0,++i);if(i<text.length)jvTimers.push(setTimeout(tick,16));else cb&&cb()})();
 }
 function jarvisBrief(){
-  if(!isAdmin())return;
   const o=$("#jarvis");jvClear();
   const st=jvStats(), name=jvName();
-  $("#jvTitle").textContent=jvGreeting()+(name?", "+name:"")+".";
+  $("#jvTitle").textContent=jvGreeting()+", Boss.";
   $("#jvQk").textContent="Quotations · "+st.month;
   $("#jvDk").textContent="Deposits received · "+st.month;
   $("#jvQs").textContent=st.qCount+" quotation"+(st.qCount===1?"":"s")+" issued"+(st.qCount?" · avg RM "+money(st.qVal/st.qCount):"");
@@ -2741,9 +2863,9 @@ function jarvisBrief(){
   $("#jvAuto").checked=jvAutoOn();
   ["#jvQ","#jvD"].forEach(k=>{const c=$(k);c.classList.remove("in");c.querySelector("[data-n]").textContent="0.00";c.querySelector(".bar i").style.width="0"});
   o.hidden=false;requestAnimationFrame(()=>o.classList.add("show"));
-  const line="Systems online. Here is your billing briefing for "+st.monthName+", day "+st.day+" of "+st.days+".";
-  jvLastText=jvGreeting()+(name?", "+name:"")+". "+line+" "+
-    (st.qCount?"You have issued "+st.qCount+" quotation"+(st.qCount===1?"":"s")+" this month, totalling "+jvSay(st.qVal)+". ":"No quotations have been issued yet this month. ")+
+  const line="Total quoted amount this month is RM "+money(st.qVal)+". Deposits received: RM "+money(st.dVal)+".";
+  jvLastText=jvGreeting()+", Boss. "+
+    "Total quoted amount this month is "+jvSay(st.qVal)+(st.qCount?", across "+st.qCount+" quotation"+(st.qCount===1?"":"s")+". ":". ")+
     (st.dCount?"Deposits received stand at "+jvSay(st.dVal)+", across "+st.dCount+" payment"+(st.dCount===1?"":"s")+".":"No deposits have been received yet this month.")+
     (st.recv>st.dVal+0.005?" Total collections this month are "+jvSay(st.recv)+".":"");
   jvSpeak(jvLastText);
