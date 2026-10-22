@@ -974,7 +974,7 @@
           <div class="field"><label for="tmRole">Access</label><select id="tmRole"><option value="staff">Staff</option><option value="admin">Admin</option></select></div>
         </div>
         <button class="btn" type="button" id="tmAdd">Add / update person</button>
-        <div class="hint" style="margin-top:8px">Add the person here first (they show as "Waiting for login"). Then create their login in Supabase → Authentication → Users → Add user, with a temporary password and "Auto Confirm User" ticked. Access is given automatically, and on first sign-in they must choose their own password. Staff can create and edit documents. Admins can also delete, restore backups, change settings and manage this list.</div>
+        <div class="hint" style="margin-top:8px">1) Add the person here (they show as "Waiting for login"). 2) Press <b>Create login</b> next to their name and send them the message. On first sign-in they must choose their own password. Forgot password? Press <b>Reset password</b>. Staff can create and edit documents. Admins can also delete, restore backups, change settings and manage this list.</div>
       </div>
     </div>
     <div class="m-f"><button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" id="saveSettings">Save settings</button></div>
@@ -1012,6 +1012,28 @@
     <div class="m-h"><h3 id="saTitle">Update or save as new?</h3></div>
     <div class="m-b" id="saMsg"></div>
     <div class="m-f" style="flex-wrap:wrap"><button class="btn" type="button" id="saCancel">Cancel</button><button class="btn" type="button" id="saUpdate">Update</button><button class="btn primary" type="button" id="saNew">Save as new</button></div>
+  </div>
+</div>
+
+<div class="modal-back" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="lmTitle">
+  <div class="modal small">
+    <div class="m-h"><h3 id="lmTitle">Create login</h3><button class="btn ghost" type="button" id="lmClose" style="margin-left:auto">Close</button></div>
+    <div class="m-b">
+      <div id="lmForm">
+        <div class="field"><label for="lmEmail">Login email</label><input type="email" id="lmEmail" readonly></div>
+        <div class="field"><label for="lmPass">Temporary password <span class="hint">at least 8 characters</span></label><input type="text" id="lmPass" autocomplete="off"></div>
+        <div class="hint">They must choose their own password the first time they sign in.</div>
+      </div>
+      <div id="lmDone" hidden>
+        <div class="field"><label for="lmMsg">Send this to them (WhatsApp)</label><textarea id="lmMsg" rows="9" readonly></textarea></div>
+      </div>
+    </div>
+    <div class="m-f">
+      <button class="btn" type="button" id="lmCancel">Cancel</button>
+      <button class="btn primary" type="button" id="lmGo">Create login</button>
+      <button class="btn" type="button" id="lmCopy" hidden>Copy message</button>
+      <a class="btn primary" id="lmWa" style="text-decoration:none" target="_blank" rel="noopener" hidden>Open WhatsApp</a>
+    </div>
   </div>
 </div>
 
@@ -2094,10 +2116,10 @@ async function renderTeam(){
   const editBtn=m=>`<button class="btn sm ghost" type="button" data-edit="${esc(m.email)}" data-name="${esc(m.display_name)}" data-pos="${esc(m.position)}" data-role="${m.role}">Edit</button>`;
   const rows=(mres.data||[]).map(m=>`<tr><td>${esc(m.display_name||"—")}</td><td>${esc(m.email)}</td><td>${esc(m.position||"")}</td><td>${roleBadge(m.role)}</td>
       <td>${m.pw_change_required?'<span class="badge pending">Must set own password</span>':'<span class="badge paid">Active</span>'}</td>
-      <td style="text-align:right;white-space:nowrap">${editBtn(m)}${m.user_id===me.user_id?"":`<button class="btn sm ghost danger" type="button" data-rm="${m.user_id}" data-who="${esc(m.display_name||m.email)}">Remove</button>`}</td></tr>`)
+      <td style="text-align:right;white-space:nowrap">${editBtn(m)}${m.user_id===me.user_id?"":`<button class="btn sm ghost" type="button" data-rpw="${esc(m.email)}" data-who="${esc(m.display_name||"")}">Reset password</button><button class="btn sm ghost danger" type="button" data-rm="${m.user_id}" data-who="${esc(m.display_name||m.email)}">Remove</button>`}</td></tr>`)
     .concat(((pres&&pres.data)||[]).map(m=>`<tr><td>${esc(m.display_name||"—")}</td><td>${esc(m.email)}</td><td>${esc(m.position||"")}</td><td>${roleBadge(m.role)}</td>
       <td><span class="badge expired">Waiting for login</span></td>
-      <td style="text-align:right;white-space:nowrap">${editBtn(m)}<button class="btn sm ghost danger" type="button" data-rmp="${esc(m.email)}" data-who="${esc(m.display_name||m.email)}">Remove</button></td></tr>`));
+      <td style="text-align:right;white-space:nowrap"><button class="btn sm primary" type="button" data-cl="${esc(m.email)}" data-who="${esc(m.display_name||"")}">Create login</button>${editBtn(m)}<button class="btn sm ghost danger" type="button" data-rmp="${esc(m.email)}" data-who="${esc(m.display_name||m.email)}">Remove</button></td></tr>`));
   box.innerHTML=`<table class="team"><thead><tr><th>Name</th><th>Email</th><th>Position</th><th>Access</th><th>Status</th><th></th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
 }
 async function addMember(){
@@ -2107,7 +2129,7 @@ async function addMember(){
   if(error){toast(dbErr(error));return}
   if(me&&email.toLowerCase()===String(me.email).toLowerCase()){me.display_name=name;me.position=pos;me.role=role;$("#whoAmI").textContent=(name||me.email)+" · "+(isAdmin()?"Admin":"Staff");applyRoleUI()}
   ["tmEmail","tmName","tmPos"].forEach(id=>$("#"+id).value="");$("#tmRole").value="staff";
-  toast(res==="pending"?"Pre-approved "+(name||email)+" — now create their login in Supabase → Authentication → Users":"Saved "+(name||email));renderTeam();
+  toast(res==="pending"?"Added "+(name||email)+" — now press Create login next to their name":"Saved "+(name||email));renderTeam();
 }
 
 /* =================== modals =================== */
@@ -2584,6 +2606,54 @@ function jlQuick(title,steps,ms){
     base(n);
     if(!was)play(n);
   };
+})();
+
+/* =================== Team access: create login / reset password =================== */
+const APP_LINK="https://activatepbj.github.io/Account/";
+let lm={mode:"create",email:"",name:""};
+function tempPass(){const w=["Activate","Arena","Laser","Hyper","Neon"][Math.floor(Math.random()*5)];return w+String(Math.floor(1000+Math.random()*9000))}
+async function fnError(error,data){
+  if(data&&data.error)return data.error;
+  try{if(error&&error.context&&typeof error.context.json==="function"){const j=await error.context.json();if(j&&j.error)return j.error}}catch(e){}
+  const m=String((error&&error.message)||error||"");
+  if(/Failed to send|fetch|404|not found|FunctionsFetchError|FunctionsRelayError/i.test(m))return "The Create login function isn't set up in Supabase yet (see the guide), or there's no internet.";
+  return m||"Something went wrong";
+}
+function openLoginModal(mode,email,name){
+  lm={mode,email,name:name||""};
+  $("#lmTitle").textContent=mode==="reset"?"Reset password":"Create login";
+  $("#lmGo").textContent=mode==="reset"?"Set temporary password":"Create login";
+  $("#lmEmail").value=email;$("#lmPass").value=tempPass();
+  $("#lmForm").hidden=false;$("#lmDone").hidden=true;$("#lmGo").hidden=false;$("#lmCancel").hidden=false;$("#lmCopy").hidden=true;$("#lmWa").hidden=true;
+  openModal("#loginModal");setTimeout(()=>$("#lmPass").select(),60);
+}
+async function runLoginModal(){
+  const pw=$("#lmPass").value.trim();
+  if(pw.length<8){toast("Temporary password needs at least 8 characters");return}
+  const btn=$("#lmGo");btn.disabled=true;const old=btn.textContent;btn.textContent="Working…";
+  try{
+    const {data,error}=await sb.functions.invoke("billing-create-login",{body:{action:lm.mode,email:lm.email,password:pw}});
+    if(error||!data||!data.ok){toast("Not done — "+(await fnError(error,data)));return}
+    const first=(lm.name||"").split(" ")[0]||"there";
+    const msg=lm.mode==="reset"
+      ?`Hi ${first}, your ACTIVATE PBJ Billing password has been reset.\n\nLink: ${APP_LINK}\nEmail: ${lm.email}\nTemporary password: ${pw}\n\nYou'll be asked to choose your own password when you sign in.`
+      :`Hi ${first}, here is your ACTIVATE PBJ Billing login.\n\nLink: ${APP_LINK}\nEmail: ${lm.email}\nTemporary password: ${pw}\n\nYou'll be asked to choose your own password the first time you sign in.`;
+    $("#lmMsg").value=msg;$("#lmWa").href="https://wa.me/?text="+encodeURIComponent(msg);
+    $("#lmForm").hidden=true;$("#lmDone").hidden=false;$("#lmGo").hidden=true;$("#lmCancel").hidden=true;$("#lmCopy").hidden=false;$("#lmWa").hidden=false;
+    toast(lm.mode==="reset"?"Temporary password set for "+lm.email:"Login created for "+lm.email);
+    renderTeam();
+  }catch(e){toast("Not done — "+(await fnError(e)))}
+  finally{btn.disabled=false;btn.textContent=old}
+}
+(function(){
+  $("#lmGo").addEventListener("click",runLoginModal);
+  $("#lmPass").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();runLoginModal()}});
+  ["lmClose","lmCancel"].forEach(id=>$("#"+id).addEventListener("click",()=>closeModal("#loginModal")));
+  $("#lmCopy").addEventListener("click",()=>{const t=$("#lmMsg");t.select();try{navigator.clipboard.writeText(t.value).then(()=>toast("Message copied"),()=>{document.execCommand("copy");toast("Message copied")})}catch(e){document.execCommand("copy");toast("Message copied")}});
+  $("#teamBox").addEventListener("click",e=>{
+    const c=e.target.closest("[data-cl]");if(c){openLoginModal("create",c.dataset.cl,c.dataset.who);return}
+    const r=e.target.closest("[data-rpw]");if(r){openLoginModal("reset",r.dataset.rpw,r.dataset.who)}
+  });
 })();
 
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
