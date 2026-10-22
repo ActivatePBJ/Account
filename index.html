@@ -495,6 +495,29 @@
   .jl-log li:last-child{color:#e6fdff}
   @media (prefers-reduced-motion: reduce){.app-hud .sc,.jl-ring .spin,.jl-ring .spin2{animation:none!important}}
 
+  /* ---------- HUD tab-switch animation ---------- */
+  @keyframes hudViewIn{0%{opacity:0;transform:translateY(10px);filter:blur(4px)}60%{filter:blur(0)}100%{opacity:1;transform:none;filter:none}}
+  @keyframes hudItemIn{0%{opacity:0;transform:translateY(8px) scale(.985);box-shadow:0 0 0 1px rgba(0,255,255,.0)}
+    55%{opacity:1;box-shadow:0 0 0 1px rgba(0,255,255,.55),0 0 26px rgba(0,255,255,.28)}100%{opacity:1;transform:none}}
+  .hud-in{animation:hudViewIn .42s cubic-bezier(.2,.8,.2,1) both}
+  .hud-item{animation:hudItemIn .5s cubic-bezier(.2,.8,.2,1) both}
+  .hud-fx{position:fixed;inset:0;z-index:90;pointer-events:none;overflow:hidden}
+  .hud-fx .sweep{position:absolute;top:0;bottom:0;width:2px;left:-4px;background:#00ffff;box-shadow:0 0 12px #00ffff,0 0 30px rgba(0,255,255,.6);animation:hudSweep .55s cubic-bezier(.5,0,.2,1) forwards}
+  .hud-fx .sweep::after{content:"";position:absolute;top:0;bottom:0;right:2px;width:160px;background:linear-gradient(90deg,transparent,rgba(0,255,255,.10))}
+  @keyframes hudSweep{to{left:calc(100% + 4px)}}
+  .hud-fx .frame{position:absolute;animation:hudFrame .9s ease forwards}
+  .hud-fx .frame i{position:absolute;width:26px;height:26px;border:2px solid #00ffff;filter:drop-shadow(0 0 6px #00ffff)}
+  .hud-fx .frame i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}.hud-fx .frame i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+  .hud-fx .frame i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}.hud-fx .frame i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+  @keyframes hudFrame{0%{opacity:0;transform:scale(1.06)}25%{opacity:1;transform:scale(1)}70%{opacity:1}100%{opacity:0}}
+  .hud-fx .chip{position:absolute;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;letter-spacing:.22em;color:#00ffff;background:rgba(2,12,18,.85);
+    border:1px solid rgba(0,255,255,.45);padding:4px 10px;border-radius:4px;box-shadow:0 0 14px rgba(0,255,255,.25);white-space:nowrap;animation:hudChip 1.1s ease forwards}
+  .hud-fx .chip b{color:#fff;font-weight:700}
+  @keyframes hudChip{0%{opacity:0;transform:translateY(-4px)}15%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0}}
+  :root[data-theme="light"] .hud-fx .chip{background:rgba(255,255,255,.92)}
+  @media (prefers-reduced-motion: reduce){.hud-in,.hud-item{animation:none!important}.hud-fx{display:none!important}}
+  @media print{.hud-fx{display:none!important}}
+
   /* ---------- sign-in gate ---------- */
   .gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--ground)}
   .gate-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 24px}
@@ -2524,6 +2547,35 @@ function jlQuick(title,steps,ms){
   (steps||[]).forEach((t,i,a)=>setTimeout(()=>jlStep(Math.round((i+1)/(a.length+1)*100),t),(i+.4)*ms/(a.length+1)));
   return new Promise(res=>setTimeout(()=>jlFinish().then(res),ms*.75));
 }
+
+/* =================== HUD animation on every tab switch =================== */
+(function(){
+  const VIEWS={create:"#viewCreate",history:"#viewHistory",dash:"#viewDash"};
+  const NAMES={create:"CREATE / EDIT",history:"HISTORY",dash:"DASHBOARD"};
+  const base=switchTab;
+  function play(n){
+    if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+    const v=$(VIEWS[n]);if(!v||v.hidden||$("#app").hidden)return;
+    v.classList.remove("hud-in");void v.offsetWidth;v.classList.add("hud-in");
+    const items=[...v.querySelectorAll(".kpi,.card,.table-wrap,.edit-banner,.dash-tools,.hist-tools,.empty-state")].filter(x=>x.offsetParent).slice(0,16);
+    items.forEach((el,i)=>{el.classList.remove("hud-item");void el.offsetWidth;el.style.animationDelay=(50+i*28)+"ms";el.classList.add("hud-item");
+      setTimeout(()=>{el.classList.remove("hud-item");el.style.animationDelay=""},650+i*28)});
+    setTimeout(()=>v.classList.remove("hud-in"),500);
+    const old=document.querySelector(".hud-fx");if(old)old.remove();
+    const r=v.getBoundingClientRect(),top=Math.max(8,r.top-8),bot=Math.min(innerHeight-8,r.bottom+8);
+    const fx=document.createElement("div");fx.className="hud-fx";fx.setAttribute("aria-hidden","true");
+    fx.innerHTML=`<div class="sweep"></div><div class="frame" style="left:${Math.max(6,r.left-8)}px;top:${top}px;width:${Math.min(innerWidth-12,r.width+16)}px;height:${Math.max(60,bot-top)}px"><i></i><i></i><i></i><i></i></div>`+
+      `<div class="chip" style="top:${top+10}px;right:${Math.max(14,innerWidth-r.right+4)}px">A.C.T.I.V.E › <b></b></div>`;
+    document.body.appendChild(fx);
+    const b=fx.querySelector(".chip b"),txt=NAMES[n]||"";let k=0;(function t(){b.textContent=txt.slice(0,++k);if(k<txt.length)setTimeout(t,22)})();
+    setTimeout(()=>fx.remove(),1200);
+  }
+  switchTab=function(n){
+    const v=$(VIEWS[n]),was=v&&!v.hidden;
+    base(n);
+    if(!was)play(n);
+  };
+})();
 
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
 
