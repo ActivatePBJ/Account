@@ -2169,12 +2169,13 @@ function itinOption(d){
 }
 function openItinerary(){
   const d=current, c=readItems(itinOption(d).items), mins=num(d.mins)||c.mins||90;
+  const sm=String(c.tickDesc||"").match(/\b([12])\s*(?:x|×)\s*\d+\s*-?\s*min|\b([12])\s*sessions?\b/i), sessions=sm?+(sm[1]||sm[2]):1;
   let end="";
   if(c.buyout&&d.eventTime){const [h,m]=d.eventTime.split(":").map(Number),t=h*60+m+Math.round(c.buyout.h*60);end=String(Math.floor(t/60)%24).padStart(2,"0")+":"+String(t%60).padStart(2,"0")}
   const got=d.id?receivedTotal(d.type==="receipt"?d.linkedId:d.id):0;
   const confirmed=d.type!=="quotation"||d.status==="accepted"||got>0||!!d.convertedToId;
   const o={ref:d.number||"",picName:d.bill.name||"",email:d.bill.email||"",phone:d.bill.phone||"",company:d.bill.company||"",
-    eventDate:d.eventDate||"",startTime:d.eventTime||"",endTime:end,sessionMinutes:mins,pax:c.pax||"",nonPlayers:c.nonPlay||"",
+    eventDate:d.eventDate||"",startTime:d.eventTime||"",endTime:end,sessionMinutes:mins,sessions,pax:c.pax||"",nonPlayers:c.nonPlay||"",
     buyout:!!c.buyout,status:confirmed?"Confirmed":"Tentative"};
   if(!o.pax){toast("Add the players (tickets) first");return}
   const url=new URL("itinerary.html",location.href);url.hash="d="+encodeURIComponent(JSON.stringify(o));

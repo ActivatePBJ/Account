@@ -9,23 +9,6 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
 <style>
 html{-webkit-text-size-adjust:100%}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}
-.desk{container-type:inline-size;container-name:desk}
-@container desk (max-width:640px){
-  .desk .doc .body{padding:20px 16px 28px}
-  .desk .doc .tblwrap{overflow:visible}
-  .desk .doc table.ros{min-width:0;display:block}
-  .desk .doc table.ros thead{display:none}
-  .desk .doc table.ros tbody{display:block}
-  .desk .doc table.ros tr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 6px;border-bottom:1px solid #E1E6E9}
-  .desk .doc table.ros td{padding:0;border:0;width:auto!important;background:none!important;white-space:normal}
-  .desk .doc table.ros td.t{grid-column:1;font-weight:700;font-size:11.5px}
-  .desk .doc table.ros td.d{grid-column:2;text-align:right;color:#4A5560}
-  .desk .doc table.ros td.a{grid-column:1/-1;font-size:12.5px}
-  .desk .doc table.ros td:last-child{grid-column:1/-1;color:#4A5560}
-  .desk .doc table.ros tr.game{background:#E4FAFB}
-  .desk .doc table.ros tr:nth-child(even){background:#F5F8F9}
-  .desk .doc table.ros tr.game:nth-child(even){background:#E4FAFB}
-}
 /* Layout: dark brand bar, left = 2-step builder panel, right = live A4 itinerary preview on a "desk" */
 :root{
   --bg:#EEF2F3; --surface:#FFFFFF; --ink:#0C1117; --muted:#56636D; --line:#D6DFE2;
@@ -85,9 +68,9 @@ input.bad{border-color:var(--err)}
 .choice span{font-size:13px;color:var(--muted)}
 .choice:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
 .choice.off{opacity:.5;cursor:not-allowed}
-.choice:has(input:disabled){cursor:not-allowed}
-.choice:has(input:disabled:not(:checked)){opacity:.5}
-select:disabled{opacity:.7;cursor:not-allowed}
+.choice.locked{cursor:not-allowed}
+.choice.locked:not(:has(input:checked)){opacity:.4}
+select:disabled{opacity:.75;cursor:not-allowed}
 .sub{display:flex;flex-direction:column;gap:8px;padding-left:14px;border-left:2px solid var(--line)}
 .sub>.lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .note{font-size:13.5px;border-radius:8px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
@@ -216,18 +199,17 @@ details.more .grid{margin-top:12px}
     <!-- STEP 2 -->
     <section class="step" aria-labelledby="s2h">
       <h2 id="s2h"><span class="n">2</span>Game format</h2>
-      <div id="lockNote" class="note ok" hidden></div>
       <div class="choices" role="radiogroup" aria-label="Number of sessions">
         <label class="choice"><input type="radio" name="sess" id="sess2" value="2" checked><div><b>2 sessions</b><span>Session 1 unlocks games, Session 2 is the main game where unlocks give more chances to score.</span></div></label>
         <label class="choice"><input type="radio" name="sess" id="sess1" value="1"><div><b>1 session</b><span>Straight into the main game.</span></div></label>
       </div>
+      <div id="lockNote" class="note ok" hidden></div>
       <div class="sub" id="modeBox" hidden>
         <div class="lbl">1-session mode</div>
         <label class="choice"><input type="radio" name="mode" id="modePts" value="points" checked><div><b>Main game: points</b><span>Teams fight for the highest total points.</span></div></label>
         <label class="choice" id="teamChoice"><input type="radio" name="mode" id="modeTeam" value="team"><div><b>Team mode: wins</b><span id="teamSpan">Teams play for the most wins. 60 pax and below only.</span></div></label>
       </div>
       <div id="venueNote" class="note"></div>
-      <label class="choice"><input type="checkbox" id="debrief"><div><b>Add closing debrief</b><span>10 minutes at the lobby. Last item of the event.</span></div></label>
 
       <details class="more">
         <summary>Itinerary settings</summary>
@@ -300,7 +282,7 @@ function read(){
     dur:parseInt($("sessMin").value)||90, pax, nonp:parseInt($("nonp").value)||0, sessions, mode,
     gsize:GROUP_MAX, locked:parseInt($("locked").value)||29,
     fnb:$("fnb").value, brk1:parseInt($("brk1").value)||0, ref:$("ref").value.trim(), status:$("status").value,
-    gift:$("gift").value.trim()||"Goodie bag", debrief:$("debrief").checked, buyout: pax>=BUYOUT_MIN || quoteBuyout };
+    gift:$("gift").value.trim()||"Goodie bag", buyout: pax>=BUYOUT_MIN || quoteBuyout };
 }
 
 /* ---------- run of show ---------- */
@@ -333,8 +315,7 @@ function buildRos(s, G){
   }
   rows.push({d:15,a:"Band return",t:"Team leaders return their group's bands at the lobby, group by group"});
   rows.push({d:60,a:"Group debrief & merchandise",t:"Each group shares learnings; merchandise redemption",flex:[30,90],key:"deb"});
-  rows.push({d:15,a:"Winners & close",t:`Winning team announced; ${s.gift.toLowerCase()} presented${s.debrief?"":"; event ends"}`});
-  if(s.debrief) rows.push({d:10,a:"Closing debrief",t:"Quick debrief at the lobby; event ends",key:"cd"});
+  rows.push({d:15,a:"Winners & close",t:`Winning team announced; ${s.gift.toLowerCase()} presented; event ends`});
 
   // fit to event window
   let warn = "";
@@ -472,7 +453,6 @@ function render(){
         <ol><li>What they learned</li><li>What they could improve</li><li>One thing they will bring back to the workplace</li></ol></li>
       <li><b>Merchandise:</b> Players can redeem merchandise during the debrief.</li>
       <li><b>Winning team:</b> Receives a ${esc(s.gift.toLowerCase())}. The winners' gift will be confirmed soon.</li>
-      ${s.debrief?`<li><b>Closing debrief (10 minutes):</b> The event ends with a short debrief at the lobby.</li>`:""}
     </ul></div>
 
     <div class="avoid"><h3>To confirm</h3>
@@ -488,7 +468,7 @@ function render(){
 }
 
 /* ---------- form wiring ---------- */
-const FIELDS = ["debrief","pic","email","phone","company","date","start","end","sessMin","pax","nonp","locked","fnb","brk1","ref","status","gift"];
+const FIELDS = ["pic","email","phone","company","date","start","end","sessMin","pax","nonp","locked","fnb","brk1","ref","status","gift"];
 function onChange(){
   if(edited){ edited=false; setEdit(false); toast("Text edits replaced by the updated details"); }
   $("sampleNote").hidden = true;
@@ -597,54 +577,15 @@ $("htmlBtn").onclick=()=>{
   const html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(fileBase())}</title><style>body{margin:0;background:#E9EDEF;padding:20px}${$("docCss").textContent}@page{size:A4;margin:0}@media print{body{background:#fff;padding:0}.doc{box-shadow:none}}</style></head><body>${$("doc").outerHTML.replace(/ contenteditable="(true|false)"/,"")}</body></html>`;
   save(fileBase()+".html", html);
 };
-/* PDF page layout: A4, 12mm top (pages 2+) and 14mm bottom margin on every page.
-   Page 1 keeps the full-width header at the very top. Blocks are never cut in half. */
-function paginateForPdf(root){
-  const rw=root.getBoundingClientRect().width, MM=rw/210;
-  const PAGE=Math.floor(297*MM)-1, TOP=Math.round(12*MM), BOT=Math.round(14*MM);
-  const body=root.querySelector(".body");
-  // zebra rows as fixed colours, so spacer rows can't flip the striping
-  body.querySelectorAll("table.ros tbody tr").forEach((tr,i)=>{ if(!tr.classList.contains("game")) tr.querySelectorAll("td").forEach(td=>td.style.background=i%2?"#F5F8F9":"#FFFFFF"); });
-  const units=[];
-  [...body.children].forEach(el=>{
-    if(el.classList.contains("tblwrap") && el.getBoundingClientRect().height > PAGE-TOP-BOT) el.querySelectorAll("tr").forEach(tr=>units.push(tr)); // only split a table that can't fit on one page
-    else units.push(el);
-  });
-  const rt=()=>root.getBoundingClientRect().top;
-  const top=u=>u.getBoundingClientRect().top-rt(), bot=u=>u.getBoundingClientRect().bottom-rt();
-  const isHead=u=>/^H[34]$/.test(u.tagName)||(u.parentElement&&u.parentElement.tagName==="THEAD");
-  let page=0, guard=0;
-  for(let i=0;i<units.length && guard<500;i++){
-    const u=units[i];
-    if(bot(u) <= (page+1)*PAGE-BOT) continue;
-    if(bot(u)-top(u) > PAGE-TOP-BOT){ page=Math.floor(bot(u)/PAGE); continue; } // taller than a page: let it flow
-    let j=i; while(j>0 && isHead(units[j-1])) j--;
-    const first=units[j], target=(page+1)*PAGE+TOP;
-    if(top(first) <= page*PAGE+(page>0?TOP:0)+3){ page=Math.floor(bot(u)/PAGE); continue; } // already at the top of a page
-    let sp;
-    if(first.tagName==="TR"){ sp=document.createElement("tr"); const td=document.createElement("td"); td.colSpan=4; td.style.cssText="padding:0;border:0;background:#fff"; sp.appendChild(td); }
-    else { sp=document.createElement("div"); }
-    sp.className="pgsp"; first.parentNode.insertBefore(sp,first);
-    const cell=sp.tagName==="TR"?sp.firstChild:sp;
-    if(sp.tagName!=="TR") sp.style.cssText="margin:0;padding:0;";
-    cell.style.height=Math.max(0,target-top(first))+"px";
-    // measure again: a block's own top margin pushes it lower, so correct for it
-    cell.style.height=Math.max(0,parseFloat(cell.style.height)+(target-top(first)))+"px";
-    page++; i=j-1; guard++;
-  }
-}
 $("pdfBtn").onclick=async()=>{
   if(!window.html2pdf){ toast("PDF maker did not load. Use Download HTML instead."); return; }
   const btn=$("pdfBtn"); btn.disabled=true; btn.textContent="Building PDF…";
-  const holder=document.createElement("div"); holder.style.cssText="position:fixed;left:-10000px;top:0;width:210mm";
-  const clone=$("doc").cloneNode(true); clone.removeAttribute("contenteditable"); clone.style.boxShadow="none"; clone.style.maxWidth="none"; clone.style.width="210mm"; clone.style.margin="0";
+  const holder=document.createElement("div"); holder.style.cssText="position:fixed;left:-10000px;top:0;width:794px";
+  const clone=$("doc").cloneNode(true); clone.removeAttribute("contenteditable"); clone.style.boxShadow="none"; clone.style.maxWidth="794px"; clone.style.width="794px";
   clone.querySelectorAll(".ros").forEach(t=>t.style.minWidth="0");
   holder.appendChild(clone); document.body.appendChild(holder);
   try{
-    if(document.fonts && document.fonts.ready) await document.fonts.ready;
-    const imgs=[...clone.querySelectorAll("img")]; await Promise.all(imgs.map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;})));
-    paginateForPdf(clone);
-    const blob = await html2pdf().set({margin:0,image:{type:"jpeg",quality:.95},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},pagebreak:{mode:[]}}).from(clone).outputPdf("blob");
+    const blob = await html2pdf().set({margin:[0,0,8,0],image:{type:"jpeg",quality:.95},html2canvas:{scale:2,useCORS:true,windowWidth:794,backgroundColor:"#ffffff"},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},pagebreak:{mode:["css","legacy"],avoid:[".avoid","tr","h3"]}}).from(clone).outputPdf("blob");
     await save(fileBase()+".pdf", blob);
   }catch(e){ toast("Couldn't build the PDF. Try Download HTML."); }
   finally{ holder.remove(); btn.disabled=false; btn.textContent="Download PDF"; }
@@ -668,15 +609,15 @@ if(fromQuote){
   if(fromQuote.status) $("status").value = fromQuote.status;
   setTab(false);
   fill(fromQuote);
-  const lockS = fromQuote.sessions==1 || fromQuote.sessions==2, lockT = !!fromQuote.sessionMinutes;
-  if(lockS){ $("sess1").disabled=true; $("sess2").disabled=true; }
-  if(lockT){ $("sessMin").disabled=true; }
-  if(lockS||lockT){
-    const ln=$("lockNote"); ln.hidden=false;
-    ln.innerHTML=`<div><b>Locked to the quotation.</b> ${lockS?`${fromQuote.sessions} session${fromQuote.sessions==1?"":"s"}`:""}${lockS&&lockT?" × ":""}${lockT?`${$("sessMin").value} minutes`:""}. Session setup follows the quotation and can't be changed here.</div>`;
-  }
   const miss=[["picName","person in charge"],["email","email"],["eventDate","event date"],["startTime","start time"],["pax","pax"]].filter(([k])=>!fromQuote[k]).map(x=>x[1]);
-  qs(`Filled in from ${fromQuote.ref||"the quotation"}${fromQuote.company?" ("+fromQuote.company+")":""}. ${miss.length?"Please fill in: "+miss.join(", ")+". ":""}${lockS?"Sessions follow the quotation.":"Choose 1 or 2 sessions in Step 2."}`, miss.length>0);
+  const ns = Number(fromQuote.sessions)===2 ? 2 : 1, mins = $("sessMin").value;
+  $(ns===2?"sess2":"sess1").checked = true;
+  ["sess1","sess2"].forEach(id=>{ const el=$(id); el.disabled=true; el.closest(".choice").classList.add("locked"); el.closest(".choice").title="Locked to the quotation"; });
+  $("sessMin").disabled = true; $("sessMin").title = "Locked to the quotation";
+  const ln=$("lockNote"); ln.hidden=false;
+  ln.innerHTML=`<div><b>Locked to the quotation:</b> ${mins} min × ${ns} session${ns>1?"s":""}${fromQuote.ref?" ("+esc(fromQuote.ref)+")":""}. To change it, change the quotation in the billing app.</div>`;
+  onChange();
+  qs(`Filled in from ${fromQuote.ref||"the quotation"}${fromQuote.company?" ("+fromQuote.company+")":""}. ${miss.length?"Please fill in: "+miss.join(", ")+". ":""}Game format is locked to ${mins} min × ${ns} session${ns>1?"s":""}.`, miss.length>0);
   document.title = "Itinerary · "+(fromQuote.ref||"Activate");
 } else {
 /* ---------- sample data (from the Hap Seng itinerary) ---------- */
