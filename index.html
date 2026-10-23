@@ -301,6 +301,36 @@
   @media (max-width:560px){table.dt{font-size:12px}table.dt th,table.dt td{padding:6px 4px}table.dt th{font-size:10px;letter-spacing:.02em}.dash-grid .card-b{padding:12px}}
   .dash-sub{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;margin:16px 0 6px}
   .dash-note{font-size:12px;color:var(--ink-faint);margin-top:10px}
+
+  /* ---------- payment confirmation (HUD style) ---------- */
+  #payAskModal .modal{position:relative;overflow:hidden;max-width:520px}
+  #payAskModal.open .modal{animation:paIn .45s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes paIn{0%{opacity:0;transform:scale(.92) translateY(10px);filter:blur(6px)}60%{filter:blur(0)}100%{opacity:1;transform:none;filter:none}}
+  #payAskModal .pa-c{position:absolute;width:22px;height:22px;border:2px solid #00e5f0;z-index:3;pointer-events:none;filter:drop-shadow(0 0 6px rgba(0,255,255,.7))}
+  #payAskModal .pa-c.tl{top:6px;left:6px;border-right:0;border-bottom:0}#payAskModal .pa-c.tr{top:6px;right:6px;border-left:0;border-bottom:0}
+  #payAskModal .pa-c.bl{bottom:6px;left:6px;border-right:0;border-top:0}#payAskModal .pa-c.br{bottom:6px;right:6px;border-left:0;border-top:0}
+  #payAskModal.open .pa-c{animation:paCorner .5s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes paCorner{0%{opacity:0;transform:scale(1.8)}100%{opacity:1;transform:none}}
+  #payAskModal .pa-scan{position:absolute;left:0;right:0;height:70px;top:-70px;z-index:2;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(0,255,255,.16),transparent)}
+  #payAskModal.open .pa-scan{animation:paScan 1.1s ease-out .1s both}
+  @keyframes paScan{to{top:110%}}
+  .pa-tag{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;letter-spacing:.22em;color:var(--accent);min-height:16px;margin-bottom:4px}
+  .pa-sum{display:grid;grid-template-columns:1fr auto;gap:4px 14px;font-size:13px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);margin-bottom:14px}
+  .pa-sum .k{color:var(--ink-soft)}.pa-sum .v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  .pa-sum .bal{color:var(--accent)}
+  .pa-opts{display:flex;flex-direction:column;gap:8px}
+  .pa-opt{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line-strong);border-radius:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s;opacity:0}
+  #payAskModal.open .pa-opt{animation:paOpt .4s cubic-bezier(.2,.8,.2,1) both}
+  #payAskModal.open .pa-opt:nth-child(1){animation-delay:.18s}#payAskModal.open .pa-opt:nth-child(2){animation-delay:.28s}#payAskModal.open .pa-opt:nth-child(3){animation-delay:.38s}
+  @keyframes paOpt{0%{opacity:0;transform:translateX(-10px)}100%{opacity:1;transform:none}}
+  .pa-opt input[type=radio]{width:18px;height:18px;accent-color:var(--brand);flex:none}
+  .pa-opt .t{flex:1;min-width:0}.pa-opt .t b{display:block;font-size:14px}.pa-opt .t span{font-size:12px;color:var(--ink-faint)}
+  .pa-opt .amt{font-family:var(--font-display);font-weight:800;font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pa-opt:has(input:checked){border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent),0 0 18px rgba(0,229,240,.18)}
+  .pa-opt.off{opacity:.45!important;cursor:not-allowed}
+  .pa-custom{display:flex;align-items:center;gap:6px}.pa-custom input{width:120px!important;text-align:right}
+  .pa-warn{margin-top:10px;font-size:12.5px;color:var(--danger);font-weight:600;min-height:18px}
+  @media (prefers-reduced-motion: reduce){#payAskModal .modal,#payAskModal .pa-c,#payAskModal .pa-scan,#payAskModal .pa-opt{animation:none!important;opacity:1}}
   /* ---------- history ---------- */
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
   @media (max-width:760px){.kpis{grid-template-columns:1fr 1fr}}
@@ -1036,6 +1066,19 @@
   </div>
 </div>
 
+<div class="modal-back" id="payAskModal" role="dialog" aria-modal="true" aria-labelledby="paTitle">
+  <div class="modal small">
+    <span class="pa-c tl"></span><span class="pa-c tr"></span><span class="pa-c bl"></span><span class="pa-c br"></span><div class="pa-scan"></div>
+    <div class="m-h"><div><div class="pa-tag" id="paTag"></div><h3 id="paTitle">How much did they pay?</h3></div></div>
+    <div class="m-b">
+      <div class="pa-sum" id="paSum"></div>
+      <div class="pa-opts" id="paOpts"></div>
+      <div class="pa-warn" id="paWarn" role="alert"></div>
+    </div>
+    <div class="m-f"><button class="btn" type="button" id="paCancel">Cancel</button><button class="btn primary" type="button" id="paGo" disabled>Choose an amount</button></div>
+  </div>
+</div>
+
 <div class="modal-back" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="lmTitle">
   <div class="modal small">
     <div class="m-h"><h3 id="lmTitle">Create login</h3><button class="btn ghost" type="button" id="lmClose" style="margin-left:auto">Close</button></div>
@@ -1044,6 +1087,7 @@
         <div class="field"><label for="lmEmail">Login email</label><input type="email" id="lmEmail" readonly></div>
         <div class="field"><label for="lmPass">Temporary password <span class="hint">at least 8 characters</span></label><input type="text" id="lmPass" autocomplete="off"></div>
         <div class="hint">They must choose their own password the first time they sign in.</div>
+        <div id="lmErr" role="alert" hidden style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--danger-tint);color:var(--danger);font-size:13px;font-weight:600"></div>
       </div>
       <div id="lmDone" hidden>
         <div class="field"><label for="lmMsg">Send this to them (WhatsApp)</label><textarea id="lmMsg" rows="9" readonly></textarea></div>
@@ -1842,19 +1886,59 @@ async function startPayment(src){
   if(prior){doPayment(s,prior.optIndex);return}
   pickOption(s,"Which option is the client paying for?",i=>doPayment(s,i));
 }
-function doPayment(s,oi){
+async function doPayment(s,oi){
   const r=blankDoc("receipt"), o=clone(docOptions(s)[oi]);
   o.title="PACKAGE BREAKDOWN";
   if(s.type==="quotation")toInvoiceItems(o);
   const t=optTotals(o,s.deposit), got=receivedTotal(s.id), dep=num(s.deposit);
-  let payFor,amount;
-  if(got<=0&&dep>0&&dep<100){payFor="Deposit ("+dep+"%)";amount=t.dep}
-  else if(got<=0){payFor="Full payment";amount=t.grand}
-  else{payFor="Balance payment";amount=Math.max(0,t.grand-got)}
+  const ans=await askPayAmount(s,t,got,dep);
+  if(!ans){toast("Payment cancelled — nothing was recorded");return}
+  const payFor=ans.payFor, amount=ans.amount;
   Object.assign(r,{pkg:s.pkg||"",mins:s.mins||"",bill:clone(s.bill),options:[o],deposit:s.deposit,eventDate:s.eventDate,eventTime:s.eventTime,payMethod:s.payMethod||settings.payMethod||"Bank Transfer",
     linkedId:s.id,linkedNo:s.number,linkedType:s.type,optIndex:oi,payFor,amount:Math.round(amount*100)/100});
   current=r;dirty=true;fillForm();renderPreview();setSaveStatus();switchTab("create");window.scrollTo({top:0});
-  toast("Receipt drafted for "+s.number+" — check the amount, then Save");
+  toast("Receipt drafted: "+payFor+" RM "+money(amount)+" — press Save to record it");
+}
+
+
+/* =================== payment confirmation pop-up =================== */
+function askPayAmount(s,t,got,dep){
+  return new Promise(res=>{
+    const grand=Math.round(t.grand*100)/100, bal=Math.max(0,Math.round((grand-got)*100)/100), depAmt=Math.round(t.dep*100)/100;
+    const who=s.bill.company||s.bill.name||"—";
+    $("#paSum").innerHTML=`<span class="k">Booking</span><span class="v">${esc(s.number)}</span><span class="k">Customer</span><span class="v">${esc(who)}</span>
+      <span class="k">Booking total</span><span class="v">RM ${money(grand)}</span>${got>0?`<span class="k">Received so far</span><span class="v">RM ${money(got)}</span>`:""}
+      <span class="k">Balance to pay</span><span class="v bal">RM ${money(bal)}</span>`;
+    const opts=[];
+    if(got<=0&&dep>0&&dep<100)opts.push({k:"dep",b:"Deposit ("+dep+"%)",d:"Confirms the booking",amt:depAmt,payFor:"Deposit ("+dep+"%)"});
+    opts.push(got>0?{k:"bal",b:"Balance payment",d:"Pays off the rest",amt:bal,payFor:"Balance payment"}:{k:"full",b:"Full payment",d:"Whole booking paid at once",amt:grand,payFor:"Full payment"});
+    opts.push({k:"cus",b:"Custom amount",d:"Any other amount",amt:null,payFor:"Partial payment"});
+    $("#paOpts").innerHTML=opts.map(o=>`<label class="pa-opt${o.k!=="cus"&&!(o.amt>0)?" off":""}" data-k="${o.k}"><input type="radio" name="paPick" value="${o.k}"${o.k!=="cus"&&!(o.amt>0)?" disabled":""}>
+      <span class="t"><b>${esc(o.b)}</b><span>${esc(o.d)}</span></span>
+      ${o.k==="cus"?`<span class="pa-custom">RM <input type="number" id="paCus" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></span>`:`<span class="amt">RM ${money(o.amt)}</span>`}</label>`).join("");
+    $("#paWarn").textContent=bal<=0?"This booking is already fully paid. Only continue if this is an extra payment.":"";
+    const go=$("#paGo");
+    const pick=()=>{const r=document.querySelector('input[name="paPick"]:checked');return r?opts.find(o=>o.k===r.value):null};
+    const check=()=>{
+      const o=pick();$("#paWarn").textContent=bal<=0?"This booking is already fully paid. Only continue if this is an extra payment.":"";
+      if(!o){go.disabled=true;go.textContent="Choose an amount";return null}
+      let a=o.amt;
+      if(o.k==="cus"){a=Math.round(num($("#paCus").value)*100)/100;
+        if(!(a>0)){go.disabled=true;go.textContent="Enter the amount";return null}
+        if(bal>0&&a>bal+0.004){$("#paWarn").textContent="That is more than the balance (RM "+money(bal)+"). Please check the amount.";go.disabled=true;go.textContent="Check the amount";return null}}
+      go.disabled=false;go.textContent="Confirm RM "+money(a);
+      return {payFor:o.k==="cus"&&bal>0&&Math.abs(a-bal)<0.005?"Balance payment":o.payFor,amount:a};
+    };
+    $("#paOpts").onchange=check;$("#paOpts").oninput=e=>{if(e.target.id==="paCus"){const r=document.querySelector('input[name="paPick"][value="cus"]');if(r&&!r.checked)r.checked=true}check()};
+    $("#paOpts").onclick=e=>{if(e.target.id==="paCus"){const r=document.querySelector('input[name="paPick"][value="cus"]');if(r){r.checked=true;check()}}};
+    const done=v=>{go.onclick=$("#paCancel").onclick=null;closeModal("#payAskModal");res(v)};
+    go.onclick=()=>{const v=check();if(v)done(v)};
+    $("#paCancel").onclick=()=>done(null);
+    go.disabled=true;go.textContent="Choose an amount";
+    const m=$("#payAskModal");m.classList.remove("open");void m.offsetWidth;
+    openModal("#payAskModal");setTimeout(()=>{const f=document.querySelector('#paOpts input[name="paPick"]:not([disabled])');if(f)f.focus()},80);
+    const tag=$("#paTag"),txt="A.C.T.I.V.E › PAYMENT CHECK";tag.textContent="";let i=0;(function ty(){tag.textContent=txt.slice(0,++i);if(i<txt.length)setTimeout(ty,24)})();
+  });
 }
 
 /* =================== WhatsApp text =================== */
@@ -2658,7 +2742,7 @@ function init(){
     m.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeModal("#"+m.id)));
   });
   document.addEventListener("keydown",e=>{
-    if(e.key==="Escape"){const m=$(".modal-back.open");if(m){if(m.id==="confirmModal")$("#cfNo").click();else closeModal("#"+m.id)}}
+    if(e.key==="Escape"){const m=$(".modal-back.open");if(m){if(m.id==="confirmModal")$("#cfNo").click();else if(m.id==="payAskModal")$("#paCancel").click();else closeModal("#"+m.id)}}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"&&!$("#viewCreate").hidden){e.preventDefault();saveClick()}
   });
   $("#themeBtn").addEventListener("click",()=>{const n=curTheme()==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",n);sSet(THEME_KEY,n)});
@@ -2737,16 +2821,23 @@ let lm={mode:"create",email:"",name:""};
 function tempPass(){const w=["Activate","Arena","Laser","Hyper","Neon"][Math.floor(Math.random()*5)];return w+String(Math.floor(1000+Math.random()*9000))}
 async function fnError(error,data){
   if(data&&data.error)return data.error;
-  try{if(error&&error.context&&typeof error.context.json==="function"){const j=await error.context.json();if(j&&j.error)return j.error}}catch(e){}
+  let status=0,j=null;
+  try{const c=error&&error.context;if(c){status=c.status||0;if(typeof c.json==="function")j=await c.clone().json().catch(()=>null)||await c.json().catch(()=>null)}}catch(e){}
+  const said=(j&&(j.error||j.message||j.msg))||"";
+  if(j&&j.error)return j.error;
+  if(status===401||/invalid jwt|jwt/i.test(said))return "Supabase blocked it (Invalid JWT). In Supabase → Edge Functions → billing-create-login → Details, turn OFF \"Verify JWT\", then try again.";
+  if(status===404||/not found/i.test(said))return "Supabase can't find the function. Its name must be exactly billing-create-login.";
+  if(status>=500)return "The function crashed ("+status+")"+(said?": "+said:"")+". Re-deploy the latest billing-create-login.ts.";
   const m=String((error&&error.message)||error||"");
-  if(/Failed to send|fetch|404|not found|FunctionsFetchError|FunctionsRelayError/i.test(m))return "The Create login function isn't set up in Supabase yet (see the guide), or there's no internet.";
-  return m||"Something went wrong";
+  if(/Failed to send|fetch|FunctionsFetchError|FunctionsRelayError|NetworkError/i.test(m))return "Couldn't reach the function — not deployed yet, wrong name, or no internet.";
+  return (said||m||"Something went wrong")+(status?" ("+status+")":"");
 }
 function openLoginModal(mode,email,name){
   lm={mode,email,name:name||""};
   $("#lmTitle").textContent=mode==="reset"?"Reset password":"Create login";
   $("#lmGo").textContent=mode==="reset"?"Set temporary password":"Create login";
   $("#lmEmail").value=email;$("#lmPass").value=tempPass();
+  $("#lmErr").hidden=true;$("#lmErr").textContent="";
   $("#lmForm").hidden=false;$("#lmDone").hidden=true;$("#lmGo").hidden=false;$("#lmCancel").hidden=false;$("#lmCopy").hidden=true;$("#lmWa").hidden=true;
   openModal("#loginModal");setTimeout(()=>$("#lmPass").select(),60);
 }
@@ -2756,7 +2847,7 @@ async function runLoginModal(){
   const btn=$("#lmGo");btn.disabled=true;const old=btn.textContent;btn.textContent="Working…";
   try{
     const {data,error}=await sb.functions.invoke("billing-create-login",{body:{action:lm.mode,email:lm.email,password:pw}});
-    if(error||!data||!data.ok){toast("Not done — "+(await fnError(error,data)));return}
+    if(error||!data||!data.ok){const why=await fnError(error,data);$("#lmErr").textContent="Not done — "+why;$("#lmErr").hidden=false;toast("Not done");return}
     const first=(lm.name||"").split(" ")[0]||"there";
     const msg=lm.mode==="reset"
       ?`Hi ${first}, your ACTIVATE PBJ Billing password has been reset.\n\nLink: ${APP_LINK}\nEmail: ${lm.email}\nTemporary password: ${pw}\n\nYou'll be asked to choose your own password when you sign in.`
@@ -2765,7 +2856,7 @@ async function runLoginModal(){
     $("#lmForm").hidden=true;$("#lmDone").hidden=false;$("#lmGo").hidden=true;$("#lmCancel").hidden=true;$("#lmCopy").hidden=false;$("#lmWa").hidden=false;
     toast(lm.mode==="reset"?"Temporary password set for "+lm.email:"Login created for "+lm.email);
     renderTeam();
-  }catch(e){toast("Not done — "+(await fnError(e)))}
+  }catch(e){const why=await fnError(e);$("#lmErr").textContent="Not done — "+why;$("#lmErr").hidden=false;toast("Not done")}
   finally{btn.disabled=false;btn.textContent=old}
 }
 (function(){
