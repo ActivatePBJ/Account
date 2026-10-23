@@ -632,6 +632,11 @@
   /* ---------- event follow-ups ---------- */
   .tab .count.fu{background:var(--danger);color:#fff;font-weight:800}
   .tab[aria-selected="true"] .count.fu{background:var(--danger);color:#fff}
+  .fu-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .fu-tabs .chip{font-size:13px;padding:7px 14px}
+  .fu-n{display:inline-block;min-width:20px;margin-left:6px;padding:0 6px;border-radius:999px;font-size:11px;background:var(--surface-2);color:var(--ink-soft)}
+  .fu-n.due{background:var(--danger);color:#fff}
+  .fu-rule{margin:0 0 10px}
   .fu-list{display:flex;flex-direction:column;gap:8px}
   .fu-row{display:grid;grid-template-columns:118px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--fc,var(--line));border-radius:10px;background:var(--surface-2)}
   .fu-row.g{--fc:var(--green)}.fu-row.a{--fc:var(--amber)}.fu-row.r{--fc:var(--danger)}.fu-row.d{--fc:var(--line-strong);opacity:.7}
@@ -1012,7 +1017,14 @@
     </div>
     <div class="kpis dash-kpis" id="dKpis"></div>
     <div class="dash-grid">
-      <div class="card span2" id="fuCard"><div class="card-h"><h3>Event follow-ups — next 7 days</h3><div class="right"><span class="hint" id="fuNote"></span></div></div><div class="card-b" id="fuBox"></div></div>
+      <div class="card span2" id="fuCard"><div class="card-h"><h3>Follow-ups</h3><div class="right"><span class="hint" id="fuNote"></span></div></div><div class="card-b">
+        <div class="fu-tabs" id="fuTabs" role="tablist">
+          <button type="button" class="chip" data-fut="quote" role="tab">Quotations <b class="fu-n" id="fuNq"></b></button>
+          <button type="button" class="chip" data-fut="inv" role="tab">Unpaid invoices <b class="fu-n" id="fuNi"></b></button>
+          <button type="button" class="chip" data-fut="event" role="tab">Upcoming events <b class="fu-n" id="fuNe"></b></button>
+        </div>
+        <div class="fu-rule hint" id="fuRule"></div>
+        <div id="fuBox"></div></div></div>
       <div class="card span2"><div class="card-h"><h3>Sales revenue by category</h3><div class="right"><span class="hint" id="dCatNote"></span></div></div><div class="card-b" id="dCat"></div></div>
       <div class="card"><div class="card-h"><h3>Best-selling packages</h3><div class="right"><span class="hint" id="dPkgNote"></span></div></div><div class="card-b" id="dPkg"></div></div>
       <div class="card"><div class="card-h"><h3>Lounge &amp; add-ons</h3></div><div class="card-b" id="dAdd"></div></div>
@@ -3085,106 +3097,170 @@ switchTab=function(n){
 const baseGuardDirty=guardDirty;
 guardDirty=async function(){if(unsavedReceipt())return receiptGuard();return baseGuardDirty()};
 
-/* =================== event follow-ups (min. 3 days before the event) =================== */
-const FU_WINDOW=7, FU_DUE=3;
+/* =================== follow-ups: quotations · unpaid invoices · upcoming events =================== */
+const FU_WINDOW=7, FU_DUE=3, FU_AGAIN=3;
 const WAIVER_LINK="https://waiver.playactivate.com/en-ca?location_id=86";
 const FU_CHECKS={
-  ok:[["pax","Final pax & arrival time confirmed"],["waiver","Arrival info & waiver link sent"],["group","Group list / team leaders received"],["bal","Balance on the day reminded"],["lounge","Lounge / food / cake arranged"],["itin","Itinerary sent (team building)"]],
-  pay:[["sent","Payment reminder sent"],["reply","Customer replied"]]
+  event:[["pax","Final pax & arrival time confirmed"],["waiver","Arrival info & waiver link sent"],["group","Group list / team leaders received"],["bal","Balance on the day reminded"],["lounge","Lounge / food / cake arranged"],["itin","Itinerary sent (team building)"]],
+  quote:[["sent","Follow-up message sent"],["reply","Customer replied"],["revise","Customer wants changes (revise the quotation)"]],
+  inv:[["sent","Payment reminder sent"],["reply","Customer replied / gave a payment date"]]
 };
+const FU_FIELD={event:"followUp",quote:"fuQuote",inv:"fuInv"};
+const FU_RULES={
+  quote:"Quotations not turned into an invoice yet. Due 2 days after sending, or when it expires in 2 days or the event is within 7 days. Comes back 3 days after a follow-up if still open.",
+  inv:"Invoices with no payment yet. Due 3 days after issuing, or when the event is within 7 days. Comes back 3 days after a follow-up if still unpaid.",
+  event:"Confirmed bookings in the next 7 days. Follow up at least 3 days before the event."
+};
+let fuTab="quote";
 function daysTo(iso){const a=parseISO(today()),b=parseISO(iso);if(!a||!b)return null;return Math.round((b-a)/86400000)}
-function fuItems(){
-  const t=today(),lim=addDays(t,FU_WINDOW),out=[];
-  docs.forEach(d=>{
-    if(!d.eventDate||d.eventDate<t||d.eventDate>lim)return;
-    if(d.type==="receipt"&&d.linkedId&&docs.some(x=>x.id===d.linkedId))return;   // its quotation / invoice covers it
-    if(d.type==="quotation"&&d.convertedToId&&docs.some(x=>x.id===d.convertedToId))return; // the invoice covers it
-    const es=effStatus(d);if(["declined","expired"].includes(es))return;
-    const o=d.type==="quotation"?itinOption(d):(d.options[0]||{items:[]}), tot=optTotals(o,d.deposit);
-    let got=d.type==="receipt"?num(d.amount):receivedTotal(d.id)+(d.fromQuoteId?receivedTotal(d.fromQuoteId):0);
-    if(d.type==="invoice"&&got<=0)got=d.status==="paid"?tot.grand:d.status==="deposit"?tot.dep:0;
-    const ok=got>0||(d.type==="quotation"&&d.status==="accepted");
-    const c=readItems(o.items), days=daysTo(d.eventDate), f=d.followUp||{};
-    out.push({d,ok,days,got,grand:tot.grand,depAmt:num(d.deposit)>0&&num(d.deposit)<100?tot.dep:tot.grand,bal:Math.max(0,tot.grand-got),pax:c.pax,non:c.nonPlay,done:!!f.done,f});
-  });
-  return out.sort((a,b)=>a.d.eventDate.localeCompare(b.d.eventDate)||(a.d.eventTime||"").localeCompare(b.d.eventTime||""));
+function fuAgain(f){return !!(f&&f.done&&f.at&&Date.now()-f.at>FU_AGAIN*86400000)}
+function fuBase(d,kind){
+  const o=d.type==="quotation"?itinOption(d):(d.options[0]||{items:[]}), tot=optTotals(o,d.deposit), c=readItems(o.items);
+  let got=d.type==="receipt"?num(d.amount):receivedTotal(d.id)+(d.fromQuoteId?receivedTotal(d.fromQuoteId):0);
+  if(d.type==="invoice"&&got<=0)got=d.status==="paid"?tot.grand:d.status==="deposit"?tot.dep:0;
+  const f=d[FU_FIELD[kind]]||{}, ev=d.eventDate?daysTo(d.eventDate):null;
+  return {d,kind,got,grand:tot.grand,depAmt:num(d.deposit)>0&&num(d.deposit)<100?tot.dep:tot.grand,bal:Math.max(0,tot.grand-got),pax:c.pax,non:c.nonPlay,ev,f,
+    done:!!f.done&&!fuAgain(f),again:fuAgain(f)};
 }
-function fuDue(){return fuItems().filter(x=>!x.done&&x.days<=FU_DUE)}
-function fuNoteText(){const n=fuDue().length;return n?" You have "+n+" event follow-up"+(n>1?"s":"")+" due.":""}
+function fuItems(kind){
+  const t=today(), out=[];
+  docs.forEach(d=>{
+    const es=effStatus(d);
+    if(kind==="event"){
+      if(!d.eventDate||d.eventDate<t||d.eventDate>addDays(t,FU_WINDOW))return;
+      if(d.type==="receipt"&&d.linkedId&&docs.some(x=>x.id===d.linkedId))return;
+      if(d.type==="quotation"&&d.convertedToId&&docs.some(x=>x.id===d.convertedToId))return;
+      if(["declined","expired"].includes(es))return;
+      const x=fuBase(d,"event");if(!(x.got>0||(d.type==="quotation"&&d.status==="accepted")))return;
+      x.days=x.ev;x.level=x.done?"d":x.days>FU_DUE?"g":x.days===FU_DUE?"a":"r";
+      x.pill=x.done?"Done":x.days===0?"Today":x.days===1?"Tomorrow":x.days===FU_DUE?"Follow up today":x.days<FU_DUE?x.days+" days left":"In "+x.days+" days";
+      x.when=d.eventDate;out.push(x);return;
+    }
+    if(kind==="quote"){
+      if(d.type!=="quotation"||es!=="pending")return;
+      if(d.convertedToId&&docs.some(x=>x.id===d.convertedToId))return;
+      if(receivedTotal(d.id)>0)return;
+      if(d.eventDate&&d.eventDate<t)return;
+      const x=fuBase(d,"quote"), age=-daysTo(d.date), left=d.valid?daysTo(d.valid):null;
+      const urgent=(left!=null&&left<=1)||(x.ev!=null&&x.ev<=FU_DUE), due=urgent||age>=2||(left!=null&&left<=2)||(x.ev!=null&&x.ev<=FU_WINDOW);
+      x.age=age;x.left=left;x.level=x.done?"d":!due?"g":urgent?"r":"a";
+      x.pill=x.done?"Done":x.again?"Follow up again":x.ev!=null&&x.ev<=FU_WINDOW?"Event in "+x.ev+" day"+(x.ev===1?"":"s"):left!=null&&left<=2?(left<=0?"Expires today":"Expires in "+left+" day"+(left===1?"":"s")):"Sent "+(age===0?"today":age+" day"+(age===1?"":"s")+" ago");
+      x.when=d.date;out.push(x);return;
+    }
+    if(kind==="inv"){
+      if(d.type!=="invoice"||d.status!=="unpaid")return;
+      const x=fuBase(d,"inv");if(x.got>0)return;
+      if(d.eventDate&&d.eventDate<addDays(t,-1))return;
+      const age=-daysTo(d.date), urgent=(x.ev!=null&&x.ev<=FU_DUE)||age>=7, due=urgent||age>=3||(x.ev!=null&&x.ev<=FU_WINDOW);
+      x.age=age;x.level=x.done?"d":!due?"g":urgent?"r":"a";
+      x.pill=x.done?"Done":x.again?"Follow up again":x.ev!=null&&x.ev<=FU_WINDOW?"Event in "+x.ev+" day"+(x.ev===1?"":"s"):"Issued "+(age===0?"today":age+" day"+(age===1?"":"s")+" ago");
+      x.when=d.date;out.push(x);
+    }
+  });
+  const rank={r:0,a:1,g:2,d:3};
+  return out.sort((a,b)=>rank[a.level]-rank[b.level]||(a.kind==="event"?a.d.eventDate.localeCompare(b.d.eventDate):(a.when||"").localeCompare(b.when||"")));
+}
+function fuDueOf(kind){return fuItems(kind).filter(x=>x.level==="a"||x.level==="r")}
+function fuDue(){return [...fuDueOf("quote"),...fuDueOf("inv"),...fuDueOf("event")]}
+function fuNoteText(){const q=fuDueOf("quote").length,i=fuDueOf("inv").length,e=fuDueOf("event").length,n=q+i+e;if(!n)return "";
+  const parts=[];if(q)parts.push(q+" quotation"+(q>1?"s":""));if(i)parts.push(i+" unpaid invoice"+(i>1?"s":""));if(e)parts.push(e+" upcoming event"+(e>1?"s":""));
+  return " Follow-ups due: "+parts.join(", ")+".";}
 function fuPhone(p){let s=String(p||"").replace(/\D/g,"");if(!s)return "";if(s.startsWith("0"))s="6"+s;else if(!s.startsWith("6"))s="60"+s;return s}
+function shortName(c){return String(c||"").replace(/\(.*?\)/g,"").replace(/\b(Sdn\.?\s*Bhd\.?|Berhad|Bhd\.?|Pte\.?\s*Ltd\.?|Ltd\.?|PLT)\s*$/i,"").trim()||c}
 function fuMsg(x){
-  const d=x.d, first=(d.bill.name||d.bill.company||"there").split(" ")[0], when=fmtLong(d.eventDate)+(d.eventTime?" at "+fmtTime(d.eventTime):"");
-  const dayName=(parseISO(d.eventDate)||new Date()).toLocaleDateString("en-GB",{weekday:"long"});
+  const d=x.d, first=(d.bill.name||d.bill.company||"there").split(" ")[0], when=d.eventDate?fmtLong(d.eventDate)+(d.eventTime?" at "+fmtTime(d.eventTime):""):"";
+  const dayName=d.eventDate?(parseISO(d.eventDate)).toLocaleDateString("en-GB",{weekday:"long"})+", ":"";
   const me1=(typeof me!=="undefined"&&me&&me.display_name)||settings.issName||"the team";
-  if(!x.ok){
-    if(x.days>FU_DUE)return `Dear ${first}, a gentle reminder that you have a booking for ${x.pax||"[pax]"} pax on ${dayName}, ${when} with Activate Games. We haven't yet received your ${num(d.deposit)>0&&num(d.deposit)<100?num(d.deposit)+"% deposit":"payment"} (RM ${money(x.depAmt)}). We can only confirm the booking once payment is made. As the event is ${x.days} days away, could you let us know when we can expect payment? Thank you 😊`;
-    return `Dear ${first}, a reminder about your booking for ${x.pax||"[pax]"} pax on ${dayName}, ${when}. We haven't received your ${num(d.deposit)>0&&num(d.deposit)<100?"deposit":"payment"} (RM ${money(x.depAmt)}). Unfortunately we can only hold the booking once payment is made. If we don't receive it by close of business today, we'll need to release the slot. Thank you for understanding.`;
+  const depWord=num(d.deposit)>0&&num(d.deposit)<100?num(d.deposit)+"% deposit":"payment";
+  if(x.kind!=="event"&&x.ev!=null&&x.ev<=FU_WINDOW){   // event is close and nothing paid: your /remind7 and /remind3 texts
+    if(x.ev>FU_DUE)return `Dear ${first}, a gentle reminder that you have a booking for ${x.pax||"[pax]"} pax on ${dayName}${when} with Activate Games. We haven't yet received your ${depWord} (RM ${money(x.depAmt)}). We can only confirm the booking once payment is made. As the event is ${x.ev} days away, could you let us know when we can expect payment? Thank you 😊`;
+    return `Dear ${first}, a reminder about your booking for ${x.pax||"[pax]"} pax on ${dayName}${when}. We haven't received your ${depWord} (RM ${money(x.depAmt)}). Unfortunately we can only hold the booking once payment is made. If we don't receive it by close of business today, we'll need to release the slot. Thank you for understanding.`;
+  }
+  if(x.kind==="quote"){
+    return `Hi ${first}! 😊 This is ${me1} from Activate Games KL. Just checking in on the quotation we sent you (${d.number}, ${fmtLong(d.date)}) for ${x.pax||"[pax]"} pax${when?" on "+dayName+when:""}.${d.valid?" It's valid until "+fmtLong(d.valid)+".":""}\n\nDo you have any questions, or would you like any changes? If you're happy with it, just let us know your preferred option and we'll lock in your date and send the invoice. 🙌`;
+  }
+  if(x.kind==="inv"){
+    const L=[`Hi ${first}! 😊 This is ${me1} from Activate Games KL. A gentle reminder that invoice ${d.number} is still pending payment.`,"",
+      `${num(d.deposit)>0&&num(d.deposit)<100?"Deposit ("+num(d.deposit)+"%) to confirm":"Amount due"}: *RM ${money(x.depAmt)}*`+(num(d.deposit)>0&&num(d.deposit)<100?` (total RM ${money(x.grand)})`:"")];
+    if(when)L.push(`Event: ${dayName}${when}`);
+    if(d.showBank&&settings.accNo){L.push("","Bank transfer details:",settings.bankName,"Account name: "+settings.accName,"Account no.: "+settings.accNo)}
+    L.push("","Please send us the receipt once paid. Thank you! 😊");
+    return L.join("\n");
   }
   const L=[`Hi ${first}! 😊 This is ${me1} from Activate Games KL. A friendly reminder of your booking with us:`,"",
-    `📅 ${dayName}, ${when}`,`👥 ${x.pax||"[pax]"} players${x.non?" + "+x.non+" non-players":""}`,`🔖 ${d.number}${d.rollerId?" · Booking ID "+d.rollerId:""}`,"",
+    `📅 ${dayName}${when}`,`👥 ${x.pax||"[pax]"} players${x.non?" + "+x.non+" non-players":""}`,`🔖 ${d.number}${d.rollerId?" · Booking ID "+d.rollerId:""}`,"",
     "🅿️ Getting here — Level 2, Pavilion Bukit Jalil (Pink Zone). Parking fills fast on weekends, so come early! Valet RM 15 at the Main or Bukit Jalil Entrance.",
     "👟 Comfortable clothing + closed-toe shoes (no slippers or heels).",
-    `📝 Please have everyone sign the waiver before arrival: ${WAIVER_LINK}${d.bill.company?" (use your team name + player name, e.g. "+(shortName(d.bill.company))+" - Aiden)":""}`];
+    `📝 Please have everyone sign the waiver before arrival: ${WAIVER_LINK}${d.bill.company?" (use your team name + player name, e.g. "+shortName(d.bill.company)+" - Aiden)":""}`];
   if(x.bal>0.004)L.push(`💳 Balance of RM ${money(x.bal)} is payable on the day, before wristbands are handed out.`);
   L.push("","Could you please confirm your final number of players and arrival time? See you soon! 🙌");
   return L.join("\n");
 }
-function shortName(c){return String(c||"").replace(/\(.*?\)/g,"").replace(/\b(Sdn\.?\s*Bhd\.?|Berhad|Bhd\.?|Pte\.?\s*Ltd\.?|Ltd\.?|PLT)\s*$/i,"").trim()||c}
 function fuBadge(){const b=$("#tabDashBtn");if(!b)return;let s=b.querySelector(".count.fu");const n=fuDue().length;
   if(!n){if(s)s.remove();return}if(!s){s=document.createElement("span");s.className="count fu";b.appendChild(s)}s.textContent=n;s.title=n+" follow-up(s) due";}
 function renderFollowUps(){
-  const box=$("#fuBox");if(!box)return;const items=fuItems();fuBadge();
-  const due=items.filter(x=>!x.done&&x.days<=FU_DUE).length;
-  $("#fuNote").textContent=items.length?(due?due+" due now · ":"")+items.length+" event"+(items.length>1?"s":"")+" coming up":"";
-  if(!items.length){box.innerHTML=`<div class="dash-empty">No events in the next ${FU_WINDOW} days.</div>`;return}
+  const box=$("#fuBox");if(!box)return;fuBadge();
+  const L={quote:fuItems("quote"),inv:fuItems("inv"),event:fuItems("event")};
+  [["quote","#fuNq"],["inv","#fuNi"],["event","#fuNe"]].forEach(([k,id])=>{const dn=L[k].filter(x=>x.level==="a"||x.level==="r").length,el=$(id);el.textContent=dn||L[k].length;el.classList.toggle("due",dn>0);el.title=dn?dn+" due":L[k].length+" in the list"});
+  $$("#fuTabs [data-fut]").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.fut===fuTab)));
+  $("#fuRule").textContent=FU_RULES[fuTab];
+  const totDue=fuDue().length;$("#fuNote").textContent=totDue?totDue+" due now":"All caught up";
+  const items=L[fuTab];
+  if(!items.length){box.innerHTML=`<div class="dash-empty">${fuTab==="quote"?"No open quotations to follow up.":fuTab==="inv"?"No unpaid invoices.":"No confirmed events in the next "+FU_WINDOW+" days."}</div>`;return}
   box.innerHTML=`<div class="fu-list">${items.map(x=>{
-    const d=x.d, cls=x.done?"d":x.days>FU_DUE?"g":x.days===FU_DUE?"a":"r";
-    const pill=x.done?"Done":x.days===0?"Today":x.days===1?"Tomorrow":x.days===FU_DUE?"Follow up today":x.days<FU_DUE?x.days+" days left":"In "+x.days+" days";
-    const ph=fuPhone(d.bill.phone), wa="https://wa.me/"+ph+"?text="+encodeURIComponent(fuMsg(x));
-    return `<div class="fu-row ${cls}">
-      <div class="fu-when"><b>${fmtShort(d.eventDate)}</b><span>${d.eventTime?fmtTime(d.eventTime):"Time TBC"}</span><div class="fu-pill">${pill}</div></div>
-      <div class="fu-main"><div class="kind${x.ok?"":" pay"}">${x.ok?"Pre-event follow-up":"No payment yet — payment reminder"}</div>
+    const d=x.d, ph=fuPhone(d.bill.phone), wa="https://wa.me/"+ph+"?text="+encodeURIComponent(fuMsg(x));
+    const head=x.kind==="event"?`<b>${fmtShort(d.eventDate)}</b><span>${d.eventTime?fmtTime(d.eventTime):"Time TBC"}</span>`:`<b>${fmtShort(d.date)}</b><span>${x.kind==="quote"?"Quoted":"Invoiced"}</span>`;
+    const kindTxt=x.kind==="event"?"Pre-event follow-up":x.kind==="quote"?"Quotation follow-up":"Payment reminder";
+    const money1=x.kind==="event"?(x.bal>0.004?"Balance RM "+money(x.bal):"Fully paid"):x.kind==="quote"?"Quoted RM "+money(x.grand)+(d.options.length>1?" ("+d.options.length+" options)":""):"Due RM "+money(x.depAmt);
+    const evTxt=x.kind!=="event"?(d.eventDate?" · Event "+fmtShort(d.eventDate):" · Event TBC"):"";
+    return `<div class="fu-row ${x.level}">
+      <div class="fu-when">${head}<div class="fu-pill">${esc(x.pill)}</div></div>
+      <div class="fu-main"><div class="kind${x.kind==="inv"||(x.ev!=null&&x.ev<=FU_DUE&&x.kind!=="event")?" pay":""}">${kindTxt}</div>
         <b>${esc(d.bill.company||d.bill.name||"—")}</b>${d.bill.company&&d.bill.name?` <span class="m">· ${esc(d.bill.name)}</span>`:""}
-        <div class="m">${esc(d.number)}${d.rollerId?" · Roller "+esc(d.rollerId):""} · ${x.pax||"?"} pax · ${x.ok?(x.bal>0.004?"Balance RM "+money(x.bal):"Fully paid"):"Unpaid RM "+money(x.depAmt)}${d.bill.phone?"":" · <span style=\"color:var(--danger)\">no phone</span>"}</div>
-        ${x.done?`<div class="fu-done">✓ Done by ${esc(x.f.by||"—")}${x.f.at?" · "+esc(new Date(x.f.at).toLocaleString("en-MY",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})):""}${x.f.note?" · "+esc(x.f.note):""}</div>`:(x.f.checks&&Object.values(x.f.checks).some(Boolean)?`<div class="m">In progress: ${Object.values(x.f.checks).filter(Boolean).length} of ${(FU_CHECKS[x.ok?"ok":"pay"]).length} ticked</div>`:"")}
+        <div class="m">${esc(d.number)}${d.rollerId?" · Roller "+esc(d.rollerId):""} · ${x.pax||"?"} pax · ${money1}${evTxt}${d.bill.phone?"":" · <span style=\"color:var(--danger)\">no phone</span>"}</div>
+        ${x.f&&x.f.done?`<div class="fu-done">✓ ${x.again?"Last followed up":"Done"} by ${esc(x.f.by||"—")}${x.f.at?" · "+esc(new Date(x.f.at).toLocaleString("en-MY",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})):""}${x.f.note?" · "+esc(x.f.note):""}</div>`:(x.f.checks&&Object.values(x.f.checks).some(Boolean)?`<div class="m">In progress: ${Object.values(x.f.checks).filter(Boolean).length} of ${FU_CHECKS[x.kind].length} ticked</div>`:"")}
       </div>
-      <div class="fu-acts"><a class="btn sm${x.done?"":" primary"}" style="text-decoration:none" href="${wa}" target="_blank" rel="noopener" data-fuwa="${d.id}">WhatsApp</a><button class="btn sm" type="button" data-fu="${d.id}">${x.done?"Details":"Checklist"}</button><button class="btn sm ghost" type="button" data-fuopen="${d.id}">Open</button></div>
+      <div class="fu-acts"><a class="btn sm${x.done?"":" primary"}" style="text-decoration:none" href="${wa}" target="_blank" rel="noopener" data-fuwa="${d.id}" data-fuk="${x.kind}">WhatsApp</a><button class="btn sm" type="button" data-fu="${d.id}" data-fuk="${x.kind}">${x.done?"Details":"Checklist"}</button><button class="btn sm ghost" type="button" data-fuopen="${d.id}">Open</button></div>
     </div>`}).join("")}</div>`;
 }
 let fuCur=null;
-function openFollowUp(id){
-  const x=fuItems().find(i=>i.d.id===id);if(!x)return;fuCur=x;const f=x.f||{},kind=x.ok?"ok":"pay";
+function openFollowUp(id,kind){
+  const x=fuItems(kind).find(i=>i.d.id===id);if(!x)return;fuCur=x;const f=x.f||{};
   $("#fuTitle").textContent=(x.d.bill.company||x.d.bill.name||"Follow-up");
-  $("#fuInfo").innerHTML=`${esc(x.d.number)} · ${fmtLong(x.d.eventDate)}${x.d.eventTime?" "+fmtTime(x.d.eventTime):""} · ${x.pax||"?"} pax · <b>${x.days===0?"today":x.days===1?"tomorrow":"in "+x.days+" days"}</b>`;
-  $("#fuChecks").innerHTML=FU_CHECKS[kind].map(([k,l])=>`<label><input type="checkbox" data-k="${k}"${f.checks&&f.checks[k]?" checked":""}>${esc(l)}</label>`).join("");
-  $("#fuMemo").value=f.note||"";
-  $("#fuBy").textContent=f.done?"Done by "+(f.by||"—")+(f.at?" · "+new Date(f.at).toLocaleString("en-MY"):""):"";
-  $("#fuUndo").hidden=!f.done;
-  const m=$("#fuModal");m.classList.remove("open");void m.offsetWidth;openModal("#fuModal");setTimeout(()=>hudTag($("#fuTag"),"A.C.T.I.V.E › EVENT FOLLOW-UP"),40);
+  const info=x.kind==="event"?`${fmtLong(x.d.eventDate)}${x.d.eventTime?" "+fmtTime(x.d.eventTime):""} · <b>${x.days===0?"today":x.days===1?"tomorrow":"in "+x.days+" days"}</b>`:`${x.kind==="quote"?"Quoted":"Invoiced"} ${fmtLong(x.d.date)} · <b>${esc(x.pill)}</b>`;
+  $("#fuInfo").innerHTML=`${esc(x.d.number)} · ${x.pax||"?"} pax · ${info}`;
+  $("#fuChecks").innerHTML=FU_CHECKS[x.kind].map(([k,l])=>`<label><input type="checkbox" data-k="${k}"${f.checks&&f.checks[k]&&!x.again?" checked":""}>${esc(l)}</label>`).join("");
+  $("#fuMemo").value=x.again?"":(f.note||"");
+  $("#fuBy").textContent=f.done?(x.again?"Last followed up by ":"Done by ")+(f.by||"—")+(f.at?" · "+new Date(f.at).toLocaleString("en-MY"):"")+(x.again&&f.note?" · "+f.note:""):"";
+  $("#fuUndo").hidden=!(f.done&&!x.again);
+  const m=$("#fuModal");m.classList.remove("open");void m.offsetWidth;openModal("#fuModal");
+  setTimeout(()=>hudTag($("#fuTag"),"A.C.T.I.V.E › "+(x.kind==="event"?"EVENT FOLLOW-UP":x.kind==="quote"?"QUOTATION FOLLOW-UP":"PAYMENT FOLLOW-UP")),40);
 }
 async function saveFollowUp(mode){
   if(!fuCur)return;const d=docs.find(x=>x.id===fuCur.d.id);if(!d)return;
-  const checks={};$$("#fuChecks input").forEach(i=>checks[i.dataset.k]=i.checked);
+  const key=FU_FIELD[fuCur.kind], checks={};$$("#fuChecks input").forEach(i=>checks[i.dataset.k]=i.checked);
   const by=(typeof me!=="undefined"&&me&&(me.display_name||me.email))||"";
-  const prev=d.followUp;
-  d.followUp=Object.assign({},prev||{},{checks,note:$("#fuMemo").value.trim()});
-  if(mode==="done"){d.followUp.done=true;d.followUp.by=by;d.followUp.at=Date.now()}
-  if(mode==="undo"){d.followUp.done=false;delete d.followUp.by;delete d.followUp.at}
+  const prev=d[key], hist=((prev&&prev.history)||[]).slice(-9);
+  d[key]=Object.assign({},prev||{},{checks,note:$("#fuMemo").value.trim()});
+  if(mode==="done"){d[key].done=true;d[key].by=by;d[key].at=Date.now();d[key].history=hist.concat([{by,at:Date.now(),note:d[key].note}])}
+  if(mode==="undo"){d[key].done=false;delete d[key].by;delete d[key].at}
   d.updatedAt=Date.now();
   try{const s=await dbUpdate(d);putLocal(s);toast(mode==="done"?"Follow-up done — "+s.number:mode==="undo"?"Marked as not done":"Progress saved");closeModal("#fuModal");renderFollowUps()}
-  catch(err){d.followUp=prev;toast(err.code==="conflict"?"A colleague just changed it — please try again":"Not saved — "+dbErr(err));await reloadDoc(d.id);renderFollowUps()}
+  catch(err){d[key]=prev;toast(err.code==="conflict"?"A colleague just changed it — please try again":"Not saved — "+dbErr(err));await reloadDoc(d.id);renderFollowUps()}
 }
 (function(){
+  $("#fuTabs").addEventListener("click",e=>{const c=e.target.closest("[data-fut]");if(!c)return;fuTab=c.dataset.fut;try{localStorage.setItem("activate_pbj_futab",fuTab)}catch(_){}renderFollowUps()});
+  try{const t=localStorage.getItem("activate_pbj_futab");if(["quote","inv","event"].includes(t))fuTab=t}catch(_){}
   $("#fuBox").addEventListener("click",e=>{
-    const c=e.target.closest("[data-fu]");if(c){openFollowUp(c.dataset.fu);return}
+    const c=e.target.closest("[data-fu]");if(c){openFollowUp(c.dataset.fu,c.dataset.fuk);return}
     const o=e.target.closest("[data-fuopen]");if(o){loadDoc(o.dataset.fuopen);return}
-    const w=e.target.closest("[data-fuwa]");if(w){const x=fuItems().find(i=>i.d.id===w.dataset.fuwa);if(x&&!x.d.bill.phone)toast("No phone number on this booking — choose the chat in WhatsApp")}
+    const w=e.target.closest("[data-fuwa]");if(w){const x=fuItems(w.dataset.fuk).find(i=>i.d.id===w.dataset.fuwa);if(x&&!x.d.bill.phone)toast("No phone number on this booking — choose the chat in WhatsApp")}
   });
   $("#fuDone").addEventListener("click",()=>saveFollowUp("done"));
   $("#fuSave").addEventListener("click",()=>saveFollowUp("save"));
   $("#fuUndo").addEventListener("click",()=>saveFollowUp("undo"));
   $("#fuClose").addEventListener("click",()=>closeModal("#fuModal"));
-  setInterval(()=>{if(me){fuBadge();if(!$("#viewDash").hidden)renderFollowUps()}},10*60*1000); // keep "days left" fresh
+  setInterval(()=>{if(me){fuBadge();if(!$("#viewDash").hidden)renderFollowUps()}},10*60*1000);
 })();
 
 /* =================== quotations that became invoices =================== */
