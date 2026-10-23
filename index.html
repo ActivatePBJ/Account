@@ -252,6 +252,12 @@
   .dash-tools input,.dash-tools select{width:auto}
   .dash-tools .spacer{flex:1}
   .dash-kpis .kpi .v{font-size:20px}
+  .kpis.kpis5{grid-template-columns:repeat(5,1fr);margin-bottom:12px}
+  .kpis.kpis5 .kpi .v{font-size:24px}
+  .kpis.kpis5 .kpi.hi .v{color:var(--accent)}
+  .kpis.kpis3{grid-template-columns:repeat(3,1fr)}
+  @media (max-width:900px){.kpis.kpis5{grid-template-columns:repeat(3,1fr)}}
+  @media (max-width:560px){.kpis.kpis5,.kpis.kpis3{grid-template-columns:1fr 1fr}}
   .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media (max-width:900px){.dash-grid{grid-template-columns:1fr}}
   .dash-grid .card{margin:0;min-width:0}
@@ -641,7 +647,10 @@
   .fu-row{display:grid;grid-template-columns:118px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--fc,var(--line));border-radius:10px;background:var(--surface-2)}
   .fu-row.g{--fc:var(--green)}.fu-row.a{--fc:var(--amber)}.fu-row.r{--fc:var(--danger)}.fu-row.d{--fc:var(--line-strong);opacity:.7}
   .fu-when b{display:block;font-size:14px}.fu-when span{font-size:12px;color:var(--ink-faint)}
-  .fu-pill{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.03em;padding:2px 8px;border-radius:999px;margin-top:4px;color:var(--fc);border:1px solid var(--fc)}
+  .fu-pill{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.03em;padding:2px 8px;border-radius:999px;margin-top:4px;color:var(--pc,var(--fc));border:1px solid var(--pc,var(--fc))}
+  .fu-pill.p-r,.fu-ev.p-r{--pc:var(--danger)}.fu-pill.p-a,.fu-ev.p-a{--pc:var(--amber)}.fu-pill.p-g,.fu-ev.p-g{--pc:var(--green)}.fu-pill.p-d{--pc:var(--ink-faint)}
+  .fu-ev{display:inline-block;font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;color:var(--pc);border:1px solid var(--pc);margin-left:6px;vertical-align:1px}
+  .fu-noroll{color:var(--danger);font-weight:700}
   .fu-main{min-width:0}.fu-main b{font-size:14px}.fu-main .m{font-size:12px;color:var(--ink-soft)}
   .fu-main .kind{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
   .fu-main .kind.pay{color:var(--danger)}
@@ -1015,7 +1024,8 @@
       <span class="spacer"></span>
       <label>Packages from <select id="dBasis"><option value="paid">Paid bookings</option><option value="quote">Quotations sent</option></select></label>
     </div>
-    <div class="kpis dash-kpis" id="dKpis"></div>
+    <div class="kpis dash-kpis kpis5" id="dKpisTop"></div>
+    <div class="kpis dash-kpis kpis3" id="dKpis"></div>
     <div class="dash-grid">
       <div class="card span2" id="fuCard"><div class="card-h"><h3>Follow-ups</h3><div class="right"><span class="hint" id="fuNote"></span></div></div><div class="card-b">
         <div class="fu-tabs" id="fuTabs" role="tablist">
@@ -2577,9 +2587,15 @@ function renderDash(){
   const pax=bks.reduce((t,b)=>t+readItems(b.items).pax,0);
   const owe=allBk.filter(b=>b.grand-b.received>0.005), oweAmt=sum(owe,b=>b.grand-b.received);
   const kpi=(k,v,sub)=>`<div class="kpi"><div class="k">${k}</div><div class="v tnum">${v}</div><div class="s">${sub}</div></div>`;
+  const invVal=sum(invs,d=>optTotals(d.options[0],d.deposit).grand);
+  const qConv=quotes.filter(q=>q.convertedToId&&docs.some(x=>x.id===q.convertedToId)).length, cRate=quotes.length?Math.round(qConv/quotes.length*100):0;
+  $("#dKpisTop").innerHTML=
+    kpi("Quotations sent",quotes.length,won+" confirmed")+
+    kpi("Total quoted","RM "+money(qVal),quotes.length?"avg RM "+money(qVal/quotes.length):"No quotations")+
+    kpi("Invoices issued",invs.length,qConv+" from quotations")+
+    kpi("Total invoiced","RM "+money(invVal),invs.length?"avg RM "+money(invVal/invs.length):"No invoices")+
+    `<div class="kpi hi"><div class="k">Conversion rate</div><div class="v tnum">${cRate}%</div><div class="s">${qConv} of ${quotes.length} quotations became invoices</div></div>`;
   $("#dKpis").innerHTML=
-    kpi("Quotations sent",quotes.length,"RM "+money(qVal)+" quoted · "+won+" confirmed"+(quotes.length?" ("+Math.round(won/quotes.length*100)+"%)":""))+
-    kpi("Invoices issued",invs.length,"RM "+money(sum(invs,d=>optTotals(d.options[0],d.deposit).grand))+" invoiced")+
     kpi("Total received","RM "+money(recv),pays.length+" payment"+(pays.length===1?"":"s"))+
     kpi("Deposits received","RM "+money(sum(dep,p=>p.amt)),dep.length+" deposit"+(dep.length===1?"":"s"))+
     kpi("Balance &amp; full payments","RM "+money(sum(rest,p=>p.amt)),rest.length+" payment"+(rest.length===1?"":"s"))+
@@ -3098,7 +3114,10 @@ const baseGuardDirty=guardDirty;
 guardDirty=async function(){if(unsavedReceipt())return receiptGuard();return baseGuardDirty()};
 
 /* =================== follow-ups: quotations · unpaid invoices · upcoming events =================== */
-const FU_WINDOW=7, FU_DUE=3, FU_AGAIN=3;
+const FU_WINDOW=7, FU_DUE=3, FU_AGAIN=3, EV_WINDOW=30;
+// colour rules: event 0–3 days red · 4–7 yellow · 8+ green; quotation expiry 0–2 days red · 3–5 yellow · 6+ green
+const evCol=n=>n==null?"g":n<=3?"r":n<=7?"a":"g", expCol=n=>n==null?"g":n<=2?"r":n<=5?"a":"g";
+const evTxt=n=>n===0?"Event today":n===1?"Event tomorrow":"Event in "+n+" days";
 const WAIVER_LINK="https://waiver.playactivate.com/en-ca?location_id=86";
 const FU_CHECKS={
   event:[["pax","Final pax & arrival time confirmed"],["waiver","Arrival info & waiver link sent"],["group","Group list / team leaders received"],["bal","Balance on the day reminded"],["lounge","Lounge / food / cake arranged"],["itin","Itinerary sent (team building)"]],
@@ -3107,9 +3126,9 @@ const FU_CHECKS={
 };
 const FU_FIELD={event:"followUp",quote:"fuQuote",inv:"fuInv"};
 const FU_RULES={
-  quote:"Quotations not turned into an invoice yet. Due 2 days after sending, or when it expires in 2 days or the event is within 7 days. Comes back 3 days after a follow-up if still open.",
+  quote:"Quotations not turned into an invoice yet. Red side bar = no Roller booking ID yet. Expiry: red = 2 days or less, yellow = 3–5 days, green = 6+ days. Comes back 3 days after a follow-up if still open.",
   inv:"Invoices with no payment yet. Due 3 days after issuing, or when the event is within 7 days. Comes back 3 days after a follow-up if still unpaid.",
-  event:"Confirmed bookings in the next 7 days. Follow up at least 3 days before the event."
+  event:"Confirmed bookings in the next 30 days. Red = 3 days or less (follow up now), yellow = 4–7 days, green = 8+ days."
 };
 let fuTab="quote";
 function daysTo(iso){const a=parseISO(today()),b=parseISO(iso);if(!a||!b)return null;return Math.round((b-a)/86400000)}
@@ -3127,13 +3146,14 @@ function fuItems(kind){
   docs.forEach(d=>{
     const es=effStatus(d);
     if(kind==="event"){
-      if(!d.eventDate||d.eventDate<t||d.eventDate>addDays(t,FU_WINDOW))return;
+      if(!d.eventDate||d.eventDate<t||d.eventDate>addDays(t,EV_WINDOW))return;
       if(d.type==="receipt"&&d.linkedId&&docs.some(x=>x.id===d.linkedId))return;
       if(d.type==="quotation"&&d.convertedToId&&docs.some(x=>x.id===d.convertedToId))return;
       if(["declined","expired"].includes(es))return;
       const x=fuBase(d,"event");if(!(x.got>0||(d.type==="quotation"&&d.status==="accepted")))return;
-      x.days=x.ev;x.level=x.done?"d":x.days>FU_DUE?"g":x.days===FU_DUE?"a":"r";
-      x.pill=x.done?"Done":x.days===0?"Today":x.days===1?"Tomorrow":x.days===FU_DUE?"Follow up today":x.days<FU_DUE?x.days+" days left":"In "+x.days+" days";
+      x.days=x.ev;x.level=x.done?"d":x.days>FU_WINDOW?"g":x.days>FU_DUE?"a":"r";
+      x.pc=x.done?"d":evCol(x.days);x.bar=x.pc;
+      x.pill=x.done?"Done":x.days===0?"Today":x.days===1?"Tomorrow":"In "+x.days+" days";
       x.when=d.eventDate;out.push(x);return;
     }
     if(kind==="quote"){
@@ -3144,7 +3164,8 @@ function fuItems(kind){
       const x=fuBase(d,"quote"), age=-daysTo(d.date), left=d.valid?daysTo(d.valid):null;
       const urgent=(left!=null&&left<=1)||(x.ev!=null&&x.ev<=FU_DUE), due=urgent||age>=2||(left!=null&&left<=2)||(x.ev!=null&&x.ev<=FU_WINDOW);
       x.age=age;x.left=left;x.level=x.done?"d":!due?"g":urgent?"r":"a";
-      x.pill=x.done?"Done":x.again?"Follow up again":x.ev!=null&&x.ev<=FU_WINDOW?"Event in "+x.ev+" day"+(x.ev===1?"":"s"):left!=null&&left<=2?(left<=0?"Expires today":"Expires in "+left+" day"+(left===1?"":"s")):"Sent "+(age===0?"today":age+" day"+(age===1?"":"s")+" ago");
+      x.pc=x.done?"d":expCol(left);x.bar=x.done?"d":!rollerOk(d.rollerId)?"r":x.pc;
+      x.pill=x.done?"Done":x.again?"Follow up again":left==null?"No expiry date":left<=0?"Expires today":left===1?"Expires tomorrow":"Expires in "+left+" days";
       x.when=d.date;out.push(x);return;
     }
     if(kind==="inv"){
@@ -3153,14 +3174,16 @@ function fuItems(kind){
       if(d.eventDate&&d.eventDate<addDays(t,-1))return;
       const age=-daysTo(d.date), urgent=(x.ev!=null&&x.ev<=FU_DUE)||age>=7, due=urgent||age>=3||(x.ev!=null&&x.ev<=FU_WINDOW);
       x.age=age;x.level=x.done?"d":!due?"g":urgent?"r":"a";
-      x.pill=x.done?"Done":x.again?"Follow up again":x.ev!=null&&x.ev<=FU_WINDOW?"Event in "+x.ev+" day"+(x.ev===1?"":"s"):"Issued "+(age===0?"today":age+" day"+(age===1?"":"s")+" ago");
+      x.pc=x.level;x.bar=x.level;
+      x.pill=x.done?"Done":x.again?"Follow up again":x.level==="r"?"Chase now":x.level==="a"?"Remind today":"Not paid yet";
       x.when=d.date;out.push(x);
     }
   });
   const rank={r:0,a:1,g:2,d:3};
   return out.sort((a,b)=>rank[a.level]-rank[b.level]||(a.kind==="event"?a.d.eventDate.localeCompare(b.d.eventDate):(a.when||"").localeCompare(b.when||"")));
 }
-function fuDueOf(kind){return fuItems(kind).filter(x=>x.level==="a"||x.level==="r")}
+const fuIsDue=x=>x.level==="r"||(x.level==="a"&&x.kind!=="event");
+function fuDueOf(kind){return fuItems(kind).filter(fuIsDue)}
 function fuDue(){return [...fuDueOf("quote"),...fuDueOf("inv"),...fuDueOf("event")]}
 function fuNoteText(){const q=fuDueOf("quote").length,i=fuDueOf("inv").length,e=fuDueOf("event").length,n=q+i+e;if(!n)return "";
   const parts=[];if(q)parts.push(q+" quotation"+(q>1?"s":""));if(i)parts.push(i+" unpaid invoice"+(i>1?"s":""));if(e)parts.push(e+" upcoming event"+(e>1?"s":""));
@@ -3201,23 +3224,24 @@ function fuBadge(){const b=$("#tabDashBtn");if(!b)return;let s=b.querySelector("
 function renderFollowUps(){
   const box=$("#fuBox");if(!box)return;fuBadge();
   const L={quote:fuItems("quote"),inv:fuItems("inv"),event:fuItems("event")};
-  [["quote","#fuNq"],["inv","#fuNi"],["event","#fuNe"]].forEach(([k,id])=>{const dn=L[k].filter(x=>x.level==="a"||x.level==="r").length,el=$(id);el.textContent=dn||L[k].length;el.classList.toggle("due",dn>0);el.title=dn?dn+" due":L[k].length+" in the list"});
+  [["quote","#fuNq"],["inv","#fuNi"],["event","#fuNe"]].forEach(([k,id])=>{const dn=L[k].filter(fuIsDue).length,el=$(id);el.textContent=dn||L[k].length;el.classList.toggle("due",dn>0);el.title=dn?dn+" due":L[k].length+" in the list"});
   $$("#fuTabs [data-fut]").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.fut===fuTab)));
   $("#fuRule").textContent=FU_RULES[fuTab];
   const totDue=fuDue().length;$("#fuNote").textContent=totDue?totDue+" due now":"All caught up";
   const items=L[fuTab];
-  if(!items.length){box.innerHTML=`<div class="dash-empty">${fuTab==="quote"?"No open quotations to follow up.":fuTab==="inv"?"No unpaid invoices.":"No confirmed events in the next "+FU_WINDOW+" days."}</div>`;return}
+  if(!items.length){box.innerHTML=`<div class="dash-empty">${fuTab==="quote"?"No open quotations to follow up.":fuTab==="inv"?"No unpaid invoices.":"No confirmed events in the next "+EV_WINDOW+" days."}</div>`;return}
   box.innerHTML=`<div class="fu-list">${items.map(x=>{
     const d=x.d, ph=fuPhone(d.bill.phone), wa="https://wa.me/"+ph+"?text="+encodeURIComponent(fuMsg(x));
-    const head=x.kind==="event"?`<b>${fmtShort(d.eventDate)}</b><span>${d.eventTime?fmtTime(d.eventTime):"Time TBC"}</span>`:`<b>${fmtShort(d.date)}</b><span>${x.kind==="quote"?"Quoted":"Invoiced"}</span>`;
+    const ago=x.age==null?"":x.age===0?" today":" "+x.age+" day"+(x.age===1?"":"s")+" ago";
+    const head=x.kind==="event"?`<b>${fmtShort(d.eventDate)}</b><span>${d.eventTime?fmtTime(d.eventTime):"Time TBC"}</span>`:`<b>${fmtShort(d.date)}</b><span>${x.kind==="quote"?"Sent":"Invoiced"}${ago}</span>`;
     const kindTxt=x.kind==="event"?"Pre-event follow-up":x.kind==="quote"?"Quotation follow-up":"Payment reminder";
     const money1=x.kind==="event"?(x.bal>0.004?"Balance RM "+money(x.bal):"Fully paid"):x.kind==="quote"?"Quoted RM "+money(x.grand)+(d.options.length>1?" ("+d.options.length+" options)":""):"Due RM "+money(x.depAmt);
-    const evTxt=x.kind!=="event"?(d.eventDate?" · Event "+fmtShort(d.eventDate):" · Event TBC"):"";
-    return `<div class="fu-row ${x.level}">
-      <div class="fu-when">${head}<div class="fu-pill">${esc(x.pill)}</div></div>
+    const evInfo=x.kind!=="event"?(d.eventDate?` · Event ${fmtShort(d.eventDate)}<span class="fu-ev p-${evCol(x.ev)}">${evTxt(x.ev)}</span>`:" · Event TBC"):"";
+    return `<div class="fu-row ${x.bar}">
+      <div class="fu-when">${head}<div class="fu-pill p-${x.pc}">${esc(x.pill)}</div></div>
       <div class="fu-main"><div class="kind${x.kind==="inv"||(x.ev!=null&&x.ev<=FU_DUE&&x.kind!=="event")?" pay":""}">${kindTxt}</div>
         <b>${esc(d.bill.company||d.bill.name||"—")}</b>${d.bill.company&&d.bill.name?` <span class="m">· ${esc(d.bill.name)}</span>`:""}
-        <div class="m">${esc(d.number)}${d.rollerId?" · Roller "+esc(d.rollerId):""} · ${x.pax||"?"} pax · ${money1}${evTxt}${d.bill.phone?"":" · <span style=\"color:var(--danger)\">no phone</span>"}</div>
+        <div class="m">${esc(d.number)}${d.rollerId?" · Roller "+esc(d.rollerId):(x.kind==="quote"?' · <span class="fu-noroll">No Roller ID</span>':"")} · ${x.pax||"?"} pax · ${money1}${evInfo}${d.bill.phone?"":" · <span style=\"color:var(--danger)\">no phone</span>"}</div>
         ${x.f&&x.f.done?`<div class="fu-done">✓ ${x.again?"Last followed up":"Done"} by ${esc(x.f.by||"—")}${x.f.at?" · "+esc(new Date(x.f.at).toLocaleString("en-MY",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})):""}${x.f.note?" · "+esc(x.f.note):""}</div>`:(x.f.checks&&Object.values(x.f.checks).some(Boolean)?`<div class="m">In progress: ${Object.values(x.f.checks).filter(Boolean).length} of ${FU_CHECKS[x.kind].length} ticked</div>`:"")}
       </div>
       <div class="fu-acts"><a class="btn sm${x.done?"":" primary"}" style="text-decoration:none" href="${wa}" target="_blank" rel="noopener" data-fuwa="${d.id}" data-fuk="${x.kind}">WhatsApp</a><button class="btn sm" type="button" data-fu="${d.id}" data-fuk="${x.kind}">${x.done?"Details":"Checklist"}</button><button class="btn sm ghost" type="button" data-fuopen="${d.id}">Open</button></div>
