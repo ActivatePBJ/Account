@@ -649,6 +649,21 @@
   .fu-checks label:has(input:checked){border-color:var(--green);background:var(--green-tint)}
   .fu-checks input{width:18px;height:18px;accent-color:var(--green)}
 
+  /* ---------- quotation → invoice conversion ---------- */
+  .cv-top{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:14px}
+  .cv-top .k{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  .cv-top .v{font-family:var(--font-display);font-weight:900;font-size:24px;font-variant-numeric:tabular-nums}
+  .cv-top .v.hi{color:var(--accent)}
+  .cv-chart{display:flex;align-items:flex-end;gap:14px;height:190px;border-bottom:1px solid var(--line-strong);padding-top:28px}
+  .cv-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0;position:relative}
+  .cv-lab{font-size:11.5px;color:var(--ink-soft);font-weight:700;white-space:nowrap;margin-bottom:4px;font-variant-numeric:tabular-nums}
+  .cv-bar{width:100%;max-width:56px;background:var(--surface-2);border:1px solid var(--line-strong);border-radius:5px 5px 0 0;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;min-height:2px}
+  .cv-bar i{display:block;width:100%;background:var(--accent);box-shadow:0 0 10px rgba(0,229,240,.35)}
+  .cv-col:hover .cv-bar{border-color:var(--accent)}
+  .cv-x{display:flex;gap:14px;margin-top:6px}.cv-x span{flex:1;text-align:center;font-size:11.5px;color:var(--ink-faint)}
+  .cv-leg{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--ink-soft)}
+  .cv-leg i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+
   /* ---------- sign-in gate ---------- */
   .gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--ground)}
   .gate-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 24px}
@@ -1003,8 +1018,7 @@
       <div class="card"><div class="card-h"><h3>Lounge &amp; add-ons</h3></div><div class="card-b" id="dAdd"></div></div>
       <div class="card"><div class="card-h"><h3>Money received — last 12 months</h3></div><div class="card-b" id="dMonth"></div></div>
       <div class="card"><div class="card-h"><h3>Payment methods</h3></div><div class="card-b" id="dPay"></div></div>
-      <div class="card"><div class="card-h"><h3>Customers by state</h3><div class="right"><span class="hint">From billing address</span></div></div><div class="card-b" id="dState"></div></div>
-      <div class="card"><div class="card-h"><h3>Top customers</h3></div><div class="card-b" id="dCust"></div></div>
+      <div class="card span2"><div class="card-h"><h3>Quotations → invoices</h3><div class="right"><span class="hint">How many quotations became invoices</span></div></div><div class="card-b" id="dConv"></div></div>
     </div>
   </section>
 </div>
@@ -1128,8 +1142,10 @@
 <div class="modal-back" id="waModal" role="dialog" aria-modal="true" aria-labelledby="waTitle">
   <div class="modal">
     <div class="m-h"><h3 id="waTitle">WhatsApp message</h3><button class="btn ghost" type="button" data-close style="margin-left:auto">Close</button></div>
-    <div class="m-b"><textarea id="waText" style="min-height:300px;font-size:13px"></textarea><div class="hint" id="waHint">Edit if needed, then copy and paste into WhatsApp. Send the PDF together with it.</div></div>
-    <div class="m-f"><button class="btn primary" type="button" id="waCopy">Copy text</button></div>
+    <div class="m-b">
+      <div class="field" id="waToRow"><label for="waTo">Send to (WhatsApp number)</label><input type="tel" id="waTo" placeholder="e.g. 012-345 6789 — leave blank to pick the chat in WhatsApp"></div>
+      <textarea id="waText" style="min-height:300px;font-size:13px"></textarea><div class="hint" id="waHint">Edit if needed, then copy and paste into WhatsApp. Send the PDF together with it.</div></div>
+    <div class="m-f"><button class="btn" type="button" id="waPdf">Print / PDF</button><button class="btn" type="button" id="waCopy">Copy text</button><button class="btn primary" type="button" id="waOpen">Open WhatsApp chat</button></div>
   </div>
 </div>
 
@@ -2458,6 +2474,7 @@ function openItinerary(){
 /* =================== dashboard =================== */
 let dashRange="month";
 const PKG_NAMES={Corporate:"Corporate / team building",Party:"Birthday party",Group:"Other group",Individual:"Individual / walk-in"};
+function waPhone(p){let s=String(p||"").replace(/\D/g,"");if(!s)return "";if(s.startsWith("00"))s=s.slice(2);if(s.startsWith("0"))s="6"+s;else if(!s.startsWith("6"))s="60"+s;return s}
 function payDate(d){return d.paidDate||d.date||""}
 function rollerOk(v){return /^\d{9}$/.test(String(v||""))}
 function rollerHintUpd(){const h=$("#rollerHint");if(!h)return;const v=current&&current.rollerId;
@@ -2598,11 +2615,11 @@ function renderDash(){
 
   renderCatRevenue(entries,basis);
   if(typeof renderFollowUps==="function")renderFollowUps();
-  renderStates(pays,quotes);
+  renderConv();
 
   // customers
   const cu=[...groupBy(pays,p=>p.customer)].map(([n,a])=>({n,v:a.reduce((t,p)=>t+p.amt,0),c:a.length})).sort((a,b)=>b.v-a.v).slice(0,8);
-  $("#dCust").innerHTML=cu.length?`<table class="dt"><thead><tr><th>Customer</th><th class="r">Payments</th><th class="r">Received</th></tr></thead><tbody>${cu.map(x=>`<tr><td>${esc(x.n)}</td><td class="r tnum">${x.c}</td><td class="r tnum">RM ${money(x.v)}</td></tr>`).join("")}</tbody></table>`:`<div class="dash-empty">No data in this period.</div>`;
+  if($("#dCust"))$("#dCust").innerHTML=cu.length?`<table class="dt"><thead><tr><th>Customer</th><th class="r">Payments</th><th class="r">Received</th></tr></thead><tbody>${cu.map(x=>`<tr><td>${esc(x.n)}</td><td class="r tnum">${x.c}</td><td class="r tnum">RM ${money(x.v)}</td></tr>`).join("")}</tbody></table>`:`<div class="dash-empty">No data in this period.</div>`;
 }
 
 
@@ -2853,9 +2870,11 @@ function init(){
   $("#newBtn").addEventListener("click",()=>newDoc());
   $("#convertBtn").addEventListener("click",()=>startConvert());
   $("#payBtn").addEventListener("click",()=>startPayment());
-  $("#einvCopyBtn").addEventListener("click",()=>{$("#waTitle").textContent="Details for MyInvois";$("#waHint").textContent="Copy, then fill in the MyInvois portal. Items marked [ask client] are still missing.";$("#waText").value=einvText(current);openModal("#waModal")});
+  $("#einvCopyBtn").addEventListener("click",()=>{$("#waToRow").hidden=true;$("#waOpen").hidden=true;$("#waPdf").hidden=true;$("#waTitle").textContent="Details for MyInvois";$("#waHint").textContent="Copy, then fill in the MyInvois portal. Items marked [ask client] are still missing.";$("#waText").value=einvText(current);openModal("#waModal")});
   $("#printBtn").addEventListener("click",()=>printDoc(current));
-  $("#waBtn").addEventListener("click",()=>{$("#waTitle").textContent="WhatsApp message";$("#waHint").textContent="Edit if needed, then copy and paste into WhatsApp. Send the PDF together with it.";$("#waText").value=waText(current);openModal("#waModal")});
+  $("#waBtn").addEventListener("click",()=>{$("#waTitle").textContent="WhatsApp message";$("#waHint").textContent="Edit if needed, then press Open WhatsApp chat. WhatsApp links can't attach files, so attach the PDF in the chat (use Print / PDF → Save as PDF first).";$("#waText").value=waText(current);$("#waTo").value=current.bill.phone||"";$("#waToRow").hidden=false;$("#waOpen").hidden=false;$("#waPdf").hidden=false;openModal("#waModal")});
+  $("#waOpen").addEventListener("click",()=>{const ph=waPhone($("#waTo").value),url="https://wa.me/"+ph+"?text="+encodeURIComponent($("#waText").value);const w=window.open(url,"_blank","noopener");if(!w)location.href=url;if(!ph)toast("No number — choose the chat in WhatsApp")});
+  $("#waPdf").addEventListener("click",()=>{closeModal("#waModal");$("#printBtn").click()});
   $("#waCopy").addEventListener("click",async()=>{toast(await copyText($("#waText").value)?"Copied":"Select the text and copy it manually")});
 
   $("#tabCreateBtn").addEventListener("click",()=>switchTab("create"));
@@ -3167,6 +3186,34 @@ async function saveFollowUp(mode){
   $("#fuClose").addEventListener("click",()=>closeModal("#fuModal"));
   setInterval(()=>{if(me){fuBadge();if(!$("#viewDash").hidden)renderFollowUps()}},10*60*1000); // keep "days left" fresh
 })();
+
+/* =================== quotations that became invoices =================== */
+function renderConv(){
+  const box=$("#dConv");if(!box)return;
+  const isInvd=q=>!!(q.convertedToId&&docs.some(x=>x.id===q.convertedToId));
+  const qs=docs.filter(d=>d.type==="quotation"&&dashIn(d.date));
+  const inv=qs.filter(isInvd).length, open=qs.filter(q=>!isInvd(q)&&effStatus(q)==="pending").length,
+        lost=qs.filter(q=>!isInvd(q)&&["declined","expired"].includes(effStatus(q))).length,
+        paidNoInv=qs.filter(q=>!isInvd(q)&&receivedTotal(q.id)>0).length;
+  const direct=docs.filter(d=>d.type==="invoice"&&dashIn(d.date)&&!d.fromQuoteId).length;
+  const pct=qs.length?Math.round(inv/qs.length*100):0;
+  const ms=[];for(let i=5;i>=0;i--){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);ms.push(iso(d).slice(0,7))}
+  const mv=ms.map(m=>{const a=docs.filter(d=>d.type==="quotation"&&(d.date||"").startsWith(m));return {m,q:a.length,i:a.filter(isInvd).length}});
+  const mx=Math.max(1,...mv.map(x=>x.q)), lab=m=>MONTHS[+m.slice(5)-1].slice(0,3)+" "+m.slice(2,4);
+  box.innerHTML=`<div class="cv-top">
+      <div><div class="k">Quotations sent</div><div class="v">${qs.length}</div></div>
+      <div><div class="k">Became invoices</div><div class="v hi">${inv}</div></div>
+      <div><div class="k">Conversion</div><div class="v hi">${pct}%</div></div>
+      <div><div class="k">Still open</div><div class="v">${open}</div></div>
+      <div><div class="k">Declined / expired</div><div class="v">${lost}</div></div>
+    </div>
+    <div class="cv-chart" role="img" aria-label="Quotations sent and how many became invoices, last 6 months">${mv.map(x=>`<div class="cv-col" title="${lab(x.m)}: ${x.q} quotation${x.q===1?"":"s"} sent, ${x.i} became invoice${x.i===1?"":"s"}${x.q?" ("+Math.round(x.i/x.q*100)+"%)":""}">
+      <div class="cv-lab">${x.q?x.i+"/"+x.q+" · "+Math.round(x.i/x.q*100)+"%":"—"}</div>
+      <div class="cv-bar" style="height:${x.q?Math.max(3,x.q/mx*100):1}%"><i style="height:${x.q?x.i/x.q*100:0}%"></i></div></div>`).join("")}</div>
+    <div class="cv-x">${mv.map(x=>`<span>${lab(x.m)}</span>`).join("")}</div>
+    <div class="cv-leg"><span><i style="background:var(--accent)"></i>Became an invoice</span><span><i style="background:var(--surface-2);border:1px solid var(--line-strong)"></i>Quotation only</span></div>
+    <div class="dash-note">Top numbers follow the period above; the chart shows the last 6 months by quotation date.${paidNoInv?" "+paidNoInv+" quotation"+(paidNoInv>1?"s were":" was")+" paid without an invoice.":""}${direct?" "+direct+" invoice"+(direct>1?"s were":" was")+" issued without a quotation.":""}</div>`;
+}
 
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
 
