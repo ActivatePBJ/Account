@@ -872,7 +872,7 @@
           <div class="card-b">
             <div class="row four">
               <div class="field"><label for="bPax">Players (pax)</label><input type="number" id="bPax" min="1" value="30"></div>
-              <div class="field"><label for="bDur">Session</label><select id="bDur"><option value="60">60 min</option><option value="90" selected>90 min</option><option value="custom">Custom…</option></select></div>
+              <div class="field"><label for="bDur">Session</label><select id="bDur"><option value="60">60 min</option><option value="90" selected>90 min</option><option value="both">60 + 90 min (2 options)</option><option value="custom">Custom…</option></select></div>
               <div class="field"><label for="bPkg">Booking type</label><select id="bPkg"><option value="Corporate">Corporate</option><option value="Party">Birthday</option><option value="Group">Other group</option><option value="Individual">Individual / walk-in</option></select></div>
               <div class="field"><label for="bDay">Rates for</label><select id="bDay"><option value="auto">Auto</option><option value="both">Weekday + Weekend</option><option value="wd">Weekday only</option><option value="we">Weekend only</option></select></div>
               <div class="field"><label for="bLounge">Lounge hours</label><input type="number" id="bLounge" min="0" step="0.5" value="0"></div>
@@ -1782,11 +1782,12 @@ function dayInfo(s){
 }
 function readBuilder(){
   const dur=$("#bDur").value, custom=dur==="custom";
-  const mins=custom?Math.max(1,Math.round(num($("#bCustMin").value))):+dur;
+  const mins=custom?Math.max(1,Math.round(num($("#bCustMin").value))):dur==="both"?90:+dur;
   const cwd=num($("#bCustWd").value), cwe=$("#bCustWe").value.trim();
   return {pax:Math.max(0,Math.round(num($("#bPax").value))),dur,mins,custom,cust:{wd:cwd,we:cwe===""?cwd:num(cwe)},pkg:$("#bPkg").value,day:$("#bDay").value,
     lounge:Math.max(0,num($("#bLounge").value)),rooms:$("#bRooms").value,nonPlay:Math.max(0,Math.round(num($("#bNonPlay").value))),ext:num($("#bExt").value)};
 }
+function durB(b,m){return Object.assign({},b,{dur:String(m),mins:m,custom:false})}
 function rateB(b,peak){if(b.custom)return num(peak?b.cust.we:b.cust.wd);return ticketRate(b.dur, peak, b.pax, indiv(b))}
 function roomsFor(lp){return lp<=40?1:lp<=60?2:3}
 const indiv=b=>b.pkg==="Individual"||(b.pax>0&&b.pax<15);
@@ -1822,7 +1823,11 @@ function updateBuildPreview(){
   if(b.custom&&!b.cust.wd)parts.push("Enter the custom RM / pax");
   const ind=indiv(b);
   if(b.pax)parts.push(b.pax+" pax · "+(b.custom?"custom rate":ind?"individual rate":b.pax>40?"41+ tier":"15–40 tier"));
-  if(mode==="both")parts.push("Weekday RM"+money(rateB(b,false))+" / Weekend RM"+money(rateB(b,true))+" per pax");
+  if(b.dur==="both"){const b6=durB(b,60),b9=durB(b,90);
+    if(mode==="both")parts.push("60 min: WD RM"+money(rateB(b6,false))+" / WE RM"+money(rateB(b6,true))+" · 90 min: WD RM"+money(rateB(b9,false))+" / WE RM"+money(rateB(b9,true))+" per pax");
+    else parts.push((mode==="we"?"Weekend/peak":"Weekday")+" 60 min RM"+money(rateB(b6,mode==="we"))+" · 90 min RM"+money(rateB(b9,mode==="we"))+" per pax");
+    if(isInv)parts.push("Invoices use one session length — choose 60 or 90 min");}
+  else if(mode==="both")parts.push("Weekday RM"+money(rateB(b,false))+" / Weekend RM"+money(rateB(b,true))+" per pax");
   else parts.push((mode==="we"?"Weekend/peak":"Weekday")+" RM"+money(rateB(b,mode==="we"))+" per pax");
   if(di&&b.day==="auto")parts.push(di.dn+" = "+di.why);
   if(b.lounge>0&&b.rooms==="buyout")parts.push("Venue buy-out × "+Math.ceil(b.lounge)+" hr (RM"+money(settings.rates.buyout)+"/hr)");
@@ -1841,8 +1846,18 @@ function updateBuildPreview(){
 function runBuild(){
   const {b,mode,isInv}=planBuild();
   if(!b.pax){toast("Enter the number of players first");return}
+  if(b.dur==="both"&&isInv){toast("An invoice can only have one session length — choose 60 or 90 min");return}
   const dur=b.mins+"-MINUTE SESSION";
-  if(isInv){current.options=[{title:"PACKAGE BREAKDOWN",discount:0,items:buildItems(b,mode==="we",true)}];}
+  if(b.dur==="both"){
+    // Option 1 = 60-minute, Option 2 = 90-minute (each weekday + weekend when the date is open)
+    const ed=parseISO(current.eventDate), opts=[];
+    [60,90].forEach(m=>{const bb=durB(b,m),d2=m+"-MINUTE SESSION";
+      if(mode==="both"){opts.push({t:d2+" — WEEKDAY (MON–FRI)",peak:false,bb});opts.push({t:d2+" — WEEKEND (SAT–SUN)",peak:true,bb})}
+      else opts.push({t:d2+" — "+(ed?["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"][ed.getDay()]+", "+fmtLong(current.eventDate).toUpperCase():(mode==="we"?"WEEKEND (SAT–SUN)":"WEEKDAY (MON–FRI)")),peak:mode==="we",bb});
+    });
+    current.options=opts.map((o,i)=>({title:"OPTION "+(i+1)+" — "+o.t,discount:0,items:buildItems(o.bb,o.peak,false)}));
+  }
+  else if(isInv){current.options=[{title:"PACKAGE BREAKDOWN",discount:0,items:buildItems(b,mode==="we",true)}];}
   else if(mode==="both"){
     current.options=[{title:"WEEKDAY (MON–FRI) — "+dur,discount:0,items:buildItems(b,false,false)},{title:"WEEKEND (SAT–SUN) — "+dur,discount:0,items:buildItems(b,true,false)}];
   }else{
@@ -1851,7 +1866,7 @@ function runBuild(){
     current.options=[{title:t,discount:0,items:buildItems(b,mode==="we",false)}];
   }
   current.deposit=(b.pkg==="Group"||b.pkg==="Individual")?100:50;
-  current.pkg=b.pkg;current.mins=b.mins;
+  current.pkg=b.pkg;current.mins=b.dur==="both"?"":b.mins;
   if(!isInv){
     const n=[];
     if(!current.eventDate)n.push("Event date and start time are TBC. Off-peak rates apply Mon–Fri; peak rates apply on weekends and public holidays.");
