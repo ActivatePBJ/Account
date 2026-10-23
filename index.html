@@ -612,6 +612,23 @@
   #confirmModal .m-h{display:flex;align-items:center}
   @media (prefers-reduced-motion: reduce){.modal-back.open .modal,.modal-back.open .modal::before{animation:none!important;opacity:1}}
 
+  /* ---------- unsaved payment guard ---------- */
+  .modal-back{z-index:100}
+  .toast{z-index:115!important}
+  #rcptGuard .m-h{display:flex;align-items:center;padding:18px 22px}
+  #rcptGuard .cf-icon{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;margin-right:12px;flex:none;border:2px solid var(--amber);color:var(--amber);font-weight:900;font-size:18px}
+  #rcptGuard .modal{max-width:560px;--hc:var(--amber);border-color:var(--amber)}
+  #rcptGuard .hud-tag{color:var(--amber)}
+  #rcptGuard .m-h h3{color:var(--amber)}
+  #rcptGuard .m-b{padding:22px;font-size:15.5px;line-height:1.55}
+  #rcptGuard .rg-sum{display:grid;grid-template-columns:1fr auto;gap:4px 14px;font-size:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);margin-top:12px}
+  #rcptGuard .rg-sum .v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  #rcptGuard .rg-sum .big{color:var(--accent);font-size:17px}
+  #rcptGuard .m-f{padding:16px 22px;gap:10px}
+  #rcptGuard .m-f .btn{padding:11px 18px;font-size:14px;justify-content:center}
+  #rcptGuard #rgDiscard{margin-right:auto}
+  #rcptGuard.open .modal{box-shadow:0 0 0 1px var(--amber),0 0 40px rgba(255,190,70,.16),0 30px 80px rgba(0,0,0,.5)}
+
   /* ---------- sign-in gate ---------- */
   .gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--ground)}
   .gate-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 24px}
@@ -1145,6 +1162,18 @@
       <button class="btn primary" type="button" id="lmGo">Create login</button>
       <button class="btn" type="button" id="lmCopy" hidden>Copy message</button>
       <a class="btn primary" id="lmWa" style="text-decoration:none" target="_blank" rel="noopener" hidden>Open WhatsApp</a>
+    </div>
+  </div>
+</div>
+
+<div class="modal-back" id="rcptGuard" role="dialog" aria-modal="true" aria-labelledby="rgTitle">
+  <div class="modal small">
+    <div class="m-h"><span class="cf-icon" aria-hidden="true" style="--hc:var(--amber);border-color:var(--amber);color:var(--amber)">!</span><div><span class="hud-tag" id="rgTag"></span><h3 id="rgTitle">This payment isn't saved yet</h3></div></div>
+    <div class="m-b"><div id="rgMsg">Save the receipt now so the payment is recorded.</div><div class="rg-sum" id="rgSum"></div></div>
+    <div class="m-f">
+      <button class="btn ghost danger" type="button" id="rgDiscard">Discard</button>
+      <button class="btn" type="button" id="rgKeep">Keep editing</button>
+      <button class="btn primary" type="button" id="rgSave">Save receipt</button>
     </div>
   </div>
 </div>
@@ -2812,11 +2841,11 @@ function init(){
   $("#saveSettings").addEventListener("click",saveSettingsForm);
   $("#logoFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{pendingLogo=r.result;renderLogoPrev()};r.readAsDataURL(f);e.target.value=""});
   $$(".modal-back").forEach(m=>{
-    m.addEventListener("click",e=>{if(e.target===m&&m.id!=="confirmModal")closeModal("#"+m.id)});
+    m.addEventListener("click",e=>{if(e.target===m&&!["confirmModal","payAskModal","rcptGuard"].includes(m.id))closeModal("#"+m.id)});
     m.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeModal("#"+m.id)));
   });
   document.addEventListener("keydown",e=>{
-    if(e.key==="Escape"){const m=$(".modal-back.open");if(m){if(m.id==="confirmModal")$("#cfNo").click();else if(m.id==="payAskModal")$("#paCancel").click();else closeModal("#"+m.id)}}
+    if(e.key==="Escape"){const m=$(".modal-back.open");if(m){if(m.id==="confirmModal")$("#cfNo").click();else if(m.id==="payAskModal")$("#paCancel").click();else if(m.id==="rcptGuard")$("#rgKeep").click();else closeModal("#"+m.id)}}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"&&!$("#viewCreate").hidden){e.preventDefault();saveClick()}
   });
   $("#themeBtn").addEventListener("click",()=>{const n=curTheme()==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",n);sSet(THEME_KEY,n)});
@@ -2957,6 +2986,35 @@ async function runLoginModal(){
   $("#delDocBtn").addEventListener("click",()=>{if(current&&current.id)deleteDoc(current.id)});
 })();
 function hudTag(el,txt){if(!el)return;el.textContent="";let i=0;(function t(){el.textContent=txt.slice(0,++i);if(i<txt.length)setTimeout(t,22)})()}
+
+/* =================== don't leave an unsaved payment behind =================== */
+function unsavedReceipt(){return !!(current&&current.type==="receipt"&&(!current.id||dirty)&&num(current.amount)>0)}
+let rgOpen=null;
+function receiptGuard(){
+  if(!unsavedReceipt())return Promise.resolve(true);
+  if(rgOpen)return rgOpen;
+  rgOpen=new Promise(res=>{
+    const d=current,who=d.bill.company||d.bill.name||"—";
+    $("#rgMsg").innerHTML=d.id?"You changed receipt <b>"+esc(d.number)+"</b> but haven't saved it.":"You keyed in a payment but haven't saved the receipt. If you leave now, the payment won't be recorded.";
+    $("#rgSum").innerHTML=`<span>Customer</span><span class="v">${esc(who)}</span>${d.linkedNo?`<span>For</span><span class="v">${esc(d.linkedNo)}</span>`:""}<span>Payment for</span><span class="v">${esc(d.payFor||"Payment")}</span>${d.payMethod?`<span>Method</span><span class="v">${esc(d.payMethod)}</span>`:""}<span>Amount</span><span class="v big">RM ${money(d.amount)}</span>`;
+    $("#rgSave").textContent="Save receipt RM "+money(d.amount);
+    const m=$("#rcptGuard");m.classList.remove("open");void m.offsetWidth;openModal("#rcptGuard");
+    setTimeout(()=>{hudTag($("#rgTag"),"A.C.T.I.V.E › UNSAVED PAYMENT");$("#rgSave").focus()},40);
+    const done=v=>{["rgSave","rgKeep","rgDiscard"].forEach(i=>$("#"+i).onclick=null);closeModal("#rcptGuard");rgOpen=null;res(v)};
+    $("#rgKeep").onclick=()=>{done(false);if($("#viewCreate").hidden)baseSwitch("create");setTimeout(()=>$("#saveBtn").scrollIntoView({block:"center",behavior:"smooth"}),80)};
+    $("#rgDiscard").onclick=()=>{done(true);current=blankDoc("quotation");dirty=false;fillForm();renderPreview();setSaveStatus();toast("Payment discarded — nothing was recorded")};
+    $("#rgSave").onclick=async()=>{const b=$("#rgSave");b.disabled=true;b.textContent="Saving…";let ok=false;try{ok=await saveClick()}finally{b.disabled=false}
+      if(ok!==false&&!unsavedReceipt())done(true);else{b.textContent="Save receipt RM "+money(current.amount)}};
+  });
+  return rgOpen;
+}
+const baseSwitch=switchTab;
+switchTab=function(n){
+  if(n!=="create"&&!$("#viewCreate").hidden&&unsavedReceipt()){receiptGuard().then(ok=>{if(ok)baseSwitch(n)});return}
+  baseSwitch(n);
+};
+const baseGuardDirty=guardDirty;
+guardDirty=async function(){if(unsavedReceipt())return receiptGuard();return baseGuardDirty()};
 
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
 
