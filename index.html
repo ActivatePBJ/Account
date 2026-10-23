@@ -629,6 +629,26 @@
   #rcptGuard #rgDiscard{margin-right:auto}
   #rcptGuard.open .modal{box-shadow:0 0 0 1px var(--amber),0 0 40px rgba(255,190,70,.16),0 30px 80px rgba(0,0,0,.5)}
 
+  /* ---------- event follow-ups ---------- */
+  .tab .count.fu{background:var(--danger);color:#fff;font-weight:800}
+  .tab[aria-selected="true"] .count.fu{background:var(--danger);color:#fff}
+  .fu-list{display:flex;flex-direction:column;gap:8px}
+  .fu-row{display:grid;grid-template-columns:118px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--fc,var(--line));border-radius:10px;background:var(--surface-2)}
+  .fu-row.g{--fc:var(--green)}.fu-row.a{--fc:var(--amber)}.fu-row.r{--fc:var(--danger)}.fu-row.d{--fc:var(--line-strong);opacity:.7}
+  .fu-when b{display:block;font-size:14px}.fu-when span{font-size:12px;color:var(--ink-faint)}
+  .fu-pill{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.03em;padding:2px 8px;border-radius:999px;margin-top:4px;color:var(--fc);border:1px solid var(--fc)}
+  .fu-main{min-width:0}.fu-main b{font-size:14px}.fu-main .m{font-size:12px;color:var(--ink-soft)}
+  .fu-main .kind{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
+  .fu-main .kind.pay{color:var(--danger)}
+  .fu-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .fu-done{font-size:12px;color:var(--green);font-weight:600}
+  @media (max-width:700px){.fu-row{grid-template-columns:1fr}.fu-acts{justify-content:flex-start}}
+  #fuModal .modal{max-width:520px}
+  .fu-checks{display:flex;flex-direction:column;gap:8px;margin:10px 0 12px}
+  .fu-checks label{display:flex;gap:10px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:14px}
+  .fu-checks label:has(input:checked){border-color:var(--green);background:var(--green-tint)}
+  .fu-checks input{width:18px;height:18px;accent-color:var(--green)}
+
   /* ---------- sign-in gate ---------- */
   .gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--ground)}
   .gate-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 24px}
@@ -977,6 +997,7 @@
     </div>
     <div class="kpis dash-kpis" id="dKpis"></div>
     <div class="dash-grid">
+      <div class="card span2" id="fuCard"><div class="card-h"><h3>Event follow-ups — next 7 days</h3><div class="right"><span class="hint" id="fuNote"></span></div></div><div class="card-b" id="fuBox"></div></div>
       <div class="card span2"><div class="card-h"><h3>Sales revenue by category</h3><div class="right"><span class="hint" id="dCatNote"></span></div></div><div class="card-b" id="dCat"></div></div>
       <div class="card"><div class="card-h"><h3>Best-selling packages</h3><div class="right"><span class="hint" id="dPkgNote"></span></div></div><div class="card-b" id="dPkg"></div></div>
       <div class="card"><div class="card-h"><h3>Lounge &amp; add-ons</h3></div><div class="card-b" id="dAdd"></div></div>
@@ -1175,6 +1196,19 @@
       <button class="btn" type="button" id="rgKeep">Keep editing</button>
       <button class="btn primary" type="button" id="rgSave">Save receipt</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-back" id="fuModal" role="dialog" aria-modal="true" aria-labelledby="fuTitle">
+  <div class="modal small">
+    <div class="m-h"><div><span class="hud-tag" id="fuTag"></span><h3 id="fuTitle">Follow-up</h3></div><button class="btn ghost" type="button" id="fuClose" style="margin-left:auto">Close</button></div>
+    <div class="m-b">
+      <div id="fuInfo" class="hint" style="font-size:13px"></div>
+      <div class="fu-checks" id="fuChecks"></div>
+      <div class="field"><label for="fuMemo">Note (optional)</label><textarea id="fuMemo" rows="2" placeholder="e.g. Final 22 pax, arriving 2:45 PM"></textarea></div>
+      <div class="hint" id="fuBy"></div>
+    </div>
+    <div class="m-f"><button class="btn ghost danger" type="button" id="fuUndo" style="margin-right:auto">Not done yet</button><button class="btn" type="button" id="fuSave">Save progress</button><button class="btn primary" type="button" id="fuDone">Mark as done</button></div>
   </div>
 </div>
 
@@ -2188,7 +2222,7 @@ function renderHistory(){
         </div></td></tr>`;
     }).join("")}</tbody></table></div>`;
 }
-function updateHistCount(){$("#histCount").textContent=docs.length;if(!$("#viewDash").hidden)renderDash()}
+function updateHistCount(){$("#histCount").textContent=docs.length;if(!$("#viewDash").hidden)renderDash();if(typeof fuBadge==="function")fuBadge()}
 
 /* =================== files: csv / backup =================== */
 async function offerFile(filename,data,mime){
@@ -2548,6 +2582,7 @@ function renderDash(){
   $("#dPay").innerHTML=hbarsHTML(pm,r=>"RM "+money(r.v)+" · "+r.n+"×");
 
   renderCatRevenue(entries,basis);
+  if(typeof renderFollowUps==="function")renderFollowUps();
   renderStates(pays,quotes);
 
   // customers
@@ -3016,6 +3051,108 @@ switchTab=function(n){
 const baseGuardDirty=guardDirty;
 guardDirty=async function(){if(unsavedReceipt())return receiptGuard();return baseGuardDirty()};
 
+/* =================== event follow-ups (min. 3 days before the event) =================== */
+const FU_WINDOW=7, FU_DUE=3;
+const WAIVER_LINK="https://waiver.playactivate.com/en-ca?location_id=86";
+const FU_CHECKS={
+  ok:[["pax","Final pax & arrival time confirmed"],["waiver","Arrival info & waiver link sent"],["group","Group list / team leaders received"],["bal","Balance on the day reminded"],["lounge","Lounge / food / cake arranged"],["itin","Itinerary sent (team building)"]],
+  pay:[["sent","Payment reminder sent"],["reply","Customer replied"]]
+};
+function daysTo(iso){const a=parseISO(today()),b=parseISO(iso);if(!a||!b)return null;return Math.round((b-a)/86400000)}
+function fuItems(){
+  const t=today(),lim=addDays(t,FU_WINDOW),out=[];
+  docs.forEach(d=>{
+    if(!d.eventDate||d.eventDate<t||d.eventDate>lim)return;
+    if(d.type==="receipt"&&d.linkedId&&docs.some(x=>x.id===d.linkedId))return;   // its quotation / invoice covers it
+    if(d.type==="quotation"&&d.convertedToId&&docs.some(x=>x.id===d.convertedToId))return; // the invoice covers it
+    const es=effStatus(d);if(["declined","expired"].includes(es))return;
+    const o=d.type==="quotation"?itinOption(d):(d.options[0]||{items:[]}), tot=optTotals(o,d.deposit);
+    let got=d.type==="receipt"?num(d.amount):receivedTotal(d.id)+(d.fromQuoteId?receivedTotal(d.fromQuoteId):0);
+    if(d.type==="invoice"&&got<=0)got=d.status==="paid"?tot.grand:d.status==="deposit"?tot.dep:0;
+    const ok=got>0||(d.type==="quotation"&&d.status==="accepted");
+    const c=readItems(o.items), days=daysTo(d.eventDate), f=d.followUp||{};
+    out.push({d,ok,days,got,grand:tot.grand,depAmt:num(d.deposit)>0&&num(d.deposit)<100?tot.dep:tot.grand,bal:Math.max(0,tot.grand-got),pax:c.pax,non:c.nonPlay,done:!!f.done,f});
+  });
+  return out.sort((a,b)=>a.d.eventDate.localeCompare(b.d.eventDate)||(a.d.eventTime||"").localeCompare(b.d.eventTime||""));
+}
+function fuDue(){return fuItems().filter(x=>!x.done&&x.days<=FU_DUE)}
+function fuNoteText(){const n=fuDue().length;return n?" You have "+n+" event follow-up"+(n>1?"s":"")+" due.":""}
+function fuPhone(p){let s=String(p||"").replace(/\D/g,"");if(!s)return "";if(s.startsWith("0"))s="6"+s;else if(!s.startsWith("6"))s="60"+s;return s}
+function fuMsg(x){
+  const d=x.d, first=(d.bill.name||d.bill.company||"there").split(" ")[0], when=fmtLong(d.eventDate)+(d.eventTime?" at "+fmtTime(d.eventTime):"");
+  const dayName=(parseISO(d.eventDate)||new Date()).toLocaleDateString("en-GB",{weekday:"long"});
+  const me1=(typeof me!=="undefined"&&me&&me.display_name)||settings.issName||"the team";
+  if(!x.ok){
+    if(x.days>FU_DUE)return `Dear ${first}, a gentle reminder that you have a booking for ${x.pax||"[pax]"} pax on ${dayName}, ${when} with Activate Games. We haven't yet received your ${num(d.deposit)>0&&num(d.deposit)<100?num(d.deposit)+"% deposit":"payment"} (RM ${money(x.depAmt)}). We can only confirm the booking once payment is made. As the event is ${x.days} days away, could you let us know when we can expect payment? Thank you 😊`;
+    return `Dear ${first}, a reminder about your booking for ${x.pax||"[pax]"} pax on ${dayName}, ${when}. We haven't received your ${num(d.deposit)>0&&num(d.deposit)<100?"deposit":"payment"} (RM ${money(x.depAmt)}). Unfortunately we can only hold the booking once payment is made. If we don't receive it by close of business today, we'll need to release the slot. Thank you for understanding.`;
+  }
+  const L=[`Hi ${first}! 😊 This is ${me1} from Activate Games KL. A friendly reminder of your booking with us:`,"",
+    `📅 ${dayName}, ${when}`,`👥 ${x.pax||"[pax]"} players${x.non?" + "+x.non+" non-players":""}`,`🔖 ${d.number}${d.rollerId?" · Booking ID "+d.rollerId:""}`,"",
+    "🅿️ Getting here — Level 2, Pavilion Bukit Jalil (Pink Zone). Parking fills fast on weekends, so come early! Valet RM 15 at the Main or Bukit Jalil Entrance.",
+    "👟 Comfortable clothing + closed-toe shoes (no slippers or heels).",
+    `📝 Please have everyone sign the waiver before arrival: ${WAIVER_LINK}${d.bill.company?" (use your team name + player name, e.g. "+(shortName(d.bill.company))+" - Aiden)":""}`];
+  if(x.bal>0.004)L.push(`💳 Balance of RM ${money(x.bal)} is payable on the day, before wristbands are handed out.`);
+  L.push("","Could you please confirm your final number of players and arrival time? See you soon! 🙌");
+  return L.join("\n");
+}
+function shortName(c){return String(c||"").replace(/\(.*?\)/g,"").replace(/\b(Sdn\.?\s*Bhd\.?|Berhad|Bhd\.?|Pte\.?\s*Ltd\.?|Ltd\.?|PLT)\s*$/i,"").trim()||c}
+function fuBadge(){const b=$("#tabDashBtn");if(!b)return;let s=b.querySelector(".count.fu");const n=fuDue().length;
+  if(!n){if(s)s.remove();return}if(!s){s=document.createElement("span");s.className="count fu";b.appendChild(s)}s.textContent=n;s.title=n+" follow-up(s) due";}
+function renderFollowUps(){
+  const box=$("#fuBox");if(!box)return;const items=fuItems();fuBadge();
+  const due=items.filter(x=>!x.done&&x.days<=FU_DUE).length;
+  $("#fuNote").textContent=items.length?(due?due+" due now · ":"")+items.length+" event"+(items.length>1?"s":"")+" coming up":"";
+  if(!items.length){box.innerHTML=`<div class="dash-empty">No events in the next ${FU_WINDOW} days.</div>`;return}
+  box.innerHTML=`<div class="fu-list">${items.map(x=>{
+    const d=x.d, cls=x.done?"d":x.days>FU_DUE?"g":x.days===FU_DUE?"a":"r";
+    const pill=x.done?"Done":x.days===0?"Today":x.days===1?"Tomorrow":x.days===FU_DUE?"Follow up today":x.days<FU_DUE?x.days+" days left":"In "+x.days+" days";
+    const ph=fuPhone(d.bill.phone), wa="https://wa.me/"+ph+"?text="+encodeURIComponent(fuMsg(x));
+    return `<div class="fu-row ${cls}">
+      <div class="fu-when"><b>${fmtShort(d.eventDate)}</b><span>${d.eventTime?fmtTime(d.eventTime):"Time TBC"}</span><div class="fu-pill">${pill}</div></div>
+      <div class="fu-main"><div class="kind${x.ok?"":" pay"}">${x.ok?"Pre-event follow-up":"No payment yet — payment reminder"}</div>
+        <b>${esc(d.bill.company||d.bill.name||"—")}</b>${d.bill.company&&d.bill.name?` <span class="m">· ${esc(d.bill.name)}</span>`:""}
+        <div class="m">${esc(d.number)}${d.rollerId?" · Roller "+esc(d.rollerId):""} · ${x.pax||"?"} pax · ${x.ok?(x.bal>0.004?"Balance RM "+money(x.bal):"Fully paid"):"Unpaid RM "+money(x.depAmt)}${d.bill.phone?"":" · <span style=\"color:var(--danger)\">no phone</span>"}</div>
+        ${x.done?`<div class="fu-done">✓ Done by ${esc(x.f.by||"—")}${x.f.at?" · "+esc(new Date(x.f.at).toLocaleString("en-MY",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})):""}${x.f.note?" · "+esc(x.f.note):""}</div>`:(x.f.checks&&Object.values(x.f.checks).some(Boolean)?`<div class="m">In progress: ${Object.values(x.f.checks).filter(Boolean).length} of ${(FU_CHECKS[x.ok?"ok":"pay"]).length} ticked</div>`:"")}
+      </div>
+      <div class="fu-acts"><a class="btn sm${x.done?"":" primary"}" style="text-decoration:none" href="${wa}" target="_blank" rel="noopener" data-fuwa="${d.id}">WhatsApp</a><button class="btn sm" type="button" data-fu="${d.id}">${x.done?"Details":"Checklist"}</button><button class="btn sm ghost" type="button" data-fuopen="${d.id}">Open</button></div>
+    </div>`}).join("")}</div>`;
+}
+let fuCur=null;
+function openFollowUp(id){
+  const x=fuItems().find(i=>i.d.id===id);if(!x)return;fuCur=x;const f=x.f||{},kind=x.ok?"ok":"pay";
+  $("#fuTitle").textContent=(x.d.bill.company||x.d.bill.name||"Follow-up");
+  $("#fuInfo").innerHTML=`${esc(x.d.number)} · ${fmtLong(x.d.eventDate)}${x.d.eventTime?" "+fmtTime(x.d.eventTime):""} · ${x.pax||"?"} pax · <b>${x.days===0?"today":x.days===1?"tomorrow":"in "+x.days+" days"}</b>`;
+  $("#fuChecks").innerHTML=FU_CHECKS[kind].map(([k,l])=>`<label><input type="checkbox" data-k="${k}"${f.checks&&f.checks[k]?" checked":""}>${esc(l)}</label>`).join("");
+  $("#fuMemo").value=f.note||"";
+  $("#fuBy").textContent=f.done?"Done by "+(f.by||"—")+(f.at?" · "+new Date(f.at).toLocaleString("en-MY"):""):"";
+  $("#fuUndo").hidden=!f.done;
+  const m=$("#fuModal");m.classList.remove("open");void m.offsetWidth;openModal("#fuModal");setTimeout(()=>hudTag($("#fuTag"),"A.C.T.I.V.E › EVENT FOLLOW-UP"),40);
+}
+async function saveFollowUp(mode){
+  if(!fuCur)return;const d=docs.find(x=>x.id===fuCur.d.id);if(!d)return;
+  const checks={};$$("#fuChecks input").forEach(i=>checks[i.dataset.k]=i.checked);
+  const by=(typeof me!=="undefined"&&me&&(me.display_name||me.email))||"";
+  const prev=d.followUp;
+  d.followUp=Object.assign({},prev||{},{checks,note:$("#fuMemo").value.trim()});
+  if(mode==="done"){d.followUp.done=true;d.followUp.by=by;d.followUp.at=Date.now()}
+  if(mode==="undo"){d.followUp.done=false;delete d.followUp.by;delete d.followUp.at}
+  d.updatedAt=Date.now();
+  try{const s=await dbUpdate(d);putLocal(s);toast(mode==="done"?"Follow-up done — "+s.number:mode==="undo"?"Marked as not done":"Progress saved");closeModal("#fuModal");renderFollowUps()}
+  catch(err){d.followUp=prev;toast(err.code==="conflict"?"A colleague just changed it — please try again":"Not saved — "+dbErr(err));await reloadDoc(d.id);renderFollowUps()}
+}
+(function(){
+  $("#fuBox").addEventListener("click",e=>{
+    const c=e.target.closest("[data-fu]");if(c){openFollowUp(c.dataset.fu);return}
+    const o=e.target.closest("[data-fuopen]");if(o){loadDoc(o.dataset.fuopen);return}
+    const w=e.target.closest("[data-fuwa]");if(w){const x=fuItems().find(i=>i.d.id===w.dataset.fuwa);if(x&&!x.d.bill.phone)toast("No phone number on this booking — choose the chat in WhatsApp")}
+  });
+  $("#fuDone").addEventListener("click",()=>saveFollowUp("done"));
+  $("#fuSave").addEventListener("click",()=>saveFollowUp("save"));
+  $("#fuUndo").addEventListener("click",()=>saveFollowUp("undo"));
+  $("#fuClose").addEventListener("click",()=>closeModal("#fuModal"));
+  setInterval(()=>{if(me){fuBadge();if(!$("#viewDash").hidden)renderFollowUps()}},10*60*1000); // keep "days left" fresh
+})();
+
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
 
 /* =================== A.C.T.I.V.E monthly briefing =================== */
@@ -3105,8 +3242,9 @@ function jarvisBrief(){
     "Total quoted amount this month is "+jvSay(st.qVal)+(st.qCount?", across "+st.qCount+" quotation"+(st.qCount===1?"":"s")+". ":". ")+
     (st.dCount?"Deposits received stand at "+jvSay(st.dVal)+", across "+st.dCount+" payment"+(st.dCount===1?"":"s")+".":"No deposits have been received yet this month.")+
     (st.recv>st.dVal+0.005?" Total collections this month are "+jvSay(st.recv)+".":"");
+  jvLastText+=fuNoteText();
   jvSpeak(jvLastText);
-  jvType(line,()=>{
+  jvType(line+fuNoteText(),()=>{
     const fill=st.day/st.days*100;
     jvTimers.push(setTimeout(()=>{const c=$("#jvQ");c.classList.add("in");jvCount(c.querySelector("[data-n]"),st.qVal,1400);c.querySelector(".bar i").style.width=Math.max(4,fill)+"%"},100));
     jvTimers.push(setTimeout(()=>{const c=$("#jvD");c.classList.add("in");jvCount(c.querySelector("[data-n]"),st.dVal,1400);c.querySelector(".bar i").style.width=(st.qVal>0?Math.min(100,Math.max(4,st.dVal/st.qVal*100)):(st.dVal>0?100:4))+"%"},450));
