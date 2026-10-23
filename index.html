@@ -560,9 +560,9 @@
   .hud-fx .frame i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}.hud-fx .frame i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
   .hud-fx .frame i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}.hud-fx .frame i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
   @keyframes hudFrame{0%{opacity:0;transform:scale(1.06)}25%{opacity:1;transform:scale(1)}70%{opacity:1}100%{opacity:0}}
-  .hud-fx .chip{position:absolute;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11px;letter-spacing:.22em;color:#00ffff;background:rgba(2,12,18,.85);
-    border:1px solid rgba(0,255,255,.45);padding:4px 10px;border-radius:4px;box-shadow:0 0 14px rgba(0,255,255,.25);white-space:nowrap;animation:hudChip 1.1s ease forwards}
-  .hud-fx .chip b{color:#fff;font-weight:700}
+  .hud-fx .chip{position:absolute;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:16px;font-weight:600;letter-spacing:.22em;color:#00ffff;background:rgba(2,12,18,.88);
+    border:1px solid rgba(0,255,255,.55);padding:8px 16px;border-radius:6px;box-shadow:0 0 22px rgba(0,255,255,.32);white-space:nowrap;animation:hudChip 1.3s ease forwards}
+  .hud-fx .chip b{color:#fff;font-weight:800;font-size:18px}
   @keyframes hudChip{0%{opacity:0;transform:translateY(-4px)}15%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0}}
   :root[data-theme="light"] .hud-fx .chip{background:rgba(255,255,255,.92)}
   @media (prefers-reduced-motion: reduce){.hud-in,.hud-item{animation:none!important}.hud-fx{display:none!important}}
@@ -570,6 +570,47 @@
 
   .jv-btn.needtap{border-color:#00ffff;color:#00ffff;box-shadow:0 0 18px rgba(0,255,255,.35);animation:pulse 1.3s ease-in-out infinite}
   @media (prefers-reduced-motion: reduce){.jv-btn.needtap{animation:none}}
+
+  /* ---------- History: tap the whole row to open ---------- */
+  table.hist tbody tr.row-open{cursor:pointer}
+  table.hist tbody tr.row-open td:first-child{box-shadow:inset 3px 0 0 transparent;transition:box-shadow .15s}
+  table.hist tbody tr.row-open:hover td:first-child,table.hist tbody tr.row-open:focus-visible td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+  table.hist tbody tr.row-open:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  table.hist tbody tr.row-open .doc-no{color:var(--accent)}
+  .hist-tip{font-size:12px;color:var(--ink-faint);margin:-6px 0 10px}
+  #delDocBtn{margin-left:auto}
+
+  /* ---------- every pop-up: bigger + HUD animation ---------- */
+  .modal-back{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  .modal{position:relative;--hc:var(--accent)}
+  .modal-back.open .modal{animation:hudPop .42s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes hudPop{0%{opacity:0;transform:scale(.9) translateY(12px);filter:blur(6px)}60%{filter:blur(0)}100%{opacity:1;transform:none;filter:none}}
+  .modal::before{content:"";position:absolute;inset:6px;pointer-events:none;z-index:4;opacity:0;
+    background:linear-gradient(var(--hc),var(--hc)) top left/24px 2px no-repeat,linear-gradient(var(--hc),var(--hc)) top left/2px 24px no-repeat,
+      linear-gradient(var(--hc),var(--hc)) top right/24px 2px no-repeat,linear-gradient(var(--hc),var(--hc)) top right/2px 24px no-repeat,
+      linear-gradient(var(--hc),var(--hc)) bottom left/24px 2px no-repeat,linear-gradient(var(--hc),var(--hc)) bottom left/2px 24px no-repeat,
+      linear-gradient(var(--hc),var(--hc)) bottom right/24px 2px no-repeat,linear-gradient(var(--hc),var(--hc)) bottom right/2px 24px no-repeat}
+  .modal-back.open .modal::before{animation:hudCorners .5s cubic-bezier(.2,.8,.2,1) .05s both}
+  @keyframes hudCorners{0%{opacity:0;inset:-14px}100%{opacity:1;inset:6px}}
+  .modal-back.open .modal{box-shadow:0 0 0 1px var(--line-strong),0 0 40px rgba(0,229,240,.12),0 30px 80px rgba(0,0,0,.5)}
+  #payAskModal .modal::before{display:none}
+  .m-h h3{font-size:18px}
+  .hud-tag{display:block;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12px;letter-spacing:.22em;color:var(--accent);min-height:16px;margin-bottom:4px;font-weight:600}
+  /* the yes / no confirmation box */
+  #confirmModal .modal{max-width:560px}
+  #confirmModal .m-h{padding:18px 22px}
+  #confirmModal .m-b{padding:22px;font-size:16px;line-height:1.55}
+  #confirmModal .m-f{padding:16px 22px;gap:10px}
+  #confirmModal .m-f .btn{padding:11px 20px;font-size:14px;min-width:120px;justify-content:center}
+  #confirmModal.danger .modal{--hc:var(--danger);border-color:var(--danger)}
+  #confirmModal.danger .modal-back,#confirmModal.danger .hud-tag{color:var(--danger)}
+  #confirmModal.danger .m-h h3{color:var(--danger)}
+  #confirmModal.danger #cfYes{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:800}
+  :root[data-theme="dark"] #confirmModal.danger #cfYes{color:#2a0805}
+  #confirmModal.danger.open .modal{box-shadow:0 0 0 1px var(--danger),0 0 40px rgba(255,90,80,.18),0 30px 80px rgba(0,0,0,.5)}
+  #confirmModal .cf-icon{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;margin-right:12px;flex:none;border:2px solid var(--hc);color:var(--hc);font-weight:900;font-size:18px}
+  #confirmModal .m-h{display:flex;align-items:center}
+  @media (prefers-reduced-motion: reduce){.modal-back.open .modal,.modal-back.open .modal::before{animation:none!important;opacity:1}}
 
   /* ---------- sign-in gate ---------- */
   .gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--ground)}
@@ -710,7 +751,7 @@
       <div>
         <!-- document -->
         <div class="card">
-          <div class="card-h"><h3>Document</h3><div class="right"><span class="badge quo" id="curBadge">New quotation</span></div></div>
+          <div class="card-h"><h3>Document</h3><div class="right"><span class="badge quo" id="curBadge">New quotation</span><button class="btn sm ghost danger" type="button" id="delDocBtn" hidden title="Delete this document (admins only)">Delete</button></div></div>
           <div class="card-b">
             <div class="field">
               <label>Type</label>
@@ -895,6 +936,7 @@
       <button class="btn sm" type="button" id="importBtn">Restore</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </div>
+    <div class="hist-tip">Tap any row to open it.</div>
     <div id="histBody"></div>
   </section>
 
@@ -1052,7 +1094,7 @@
 <!-- confirm -->
 <div class="modal-back" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="cfTitle">
   <div class="modal small">
-    <div class="m-h"><h3 id="cfTitle">Please confirm</h3></div>
+    <div class="m-h"><span class="cf-icon" aria-hidden="true">!</span><div><span class="hud-tag" id="cfTag"></span><h3 id="cfTitle">Please confirm</h3></div></div>
     <div class="m-b" id="cfMsg"></div>
     <div class="m-f"><button class="btn" type="button" id="cfNo">Cancel</button><button class="btn primary" type="button" id="cfYes">OK</button></div>
   </div>
@@ -1648,6 +1690,7 @@ function changed(){dirty=true;renderPreview();setSaveStatus()}
 
 function setSaveStatus(){
   const s=$("#saveStatus");
+  {const db=$("#delDocBtn");if(db)db.hidden=!(current&&current.id&&typeof isAdmin==="function"&&me&&isAdmin());}
   s.classList.toggle("dirty",dirty);
   if(!current.id)s.innerHTML=dirty?"<b>Not saved yet</b>":"New "+current.type;
   else s.innerHTML=dirty?"<b>Unsaved changes</b> · "+esc(current.number):"Saved · "+esc(current.number);
@@ -2084,7 +2127,7 @@ function renderHistory(){
       else amt=amountCell(d)+(d.type==="quotation"&&d.options.length>1?`<div class="muted">${d.options.length} options</div>`:"")+(got>0?`<div class="muted">received RM ${money(got)}</div>`:"");
       const status=isRec?`<span class="badge received">${esc(d.payFor||"Received")}</span>`:
         `<span class="badge ${es}">${statusLabel(es)}</span><div style="margin-top:6px"><select class="status-sel" data-status="${d.id}" aria-label="Change status">${st.map(x=>`<option value="${x[0]}"${x[0]===d.status?" selected":""}>${x[1]}</option>`).join("")}</select></div>`;
-      return `<tr>
+      return `<tr class="row-open" data-open="${d.id}" tabindex="0" title="Open ${esc(d.number)}">
         <td><div class="doc-no">${esc(d.number)}</div><div class="muted">${fmtShort(d.date)}${d._by?" · "+esc(d._by):""}</div>${link}</td>
         <td>${typeBadge[d.type]||""}</td>
         <td><div>${esc(custName(d))}</div>${d.bill.company&&d.bill.name?`<div class="muted">${esc(d.bill.name)}</div>`:""}</td>
@@ -2092,12 +2135,10 @@ function renderHistory(){
         <td class="r tnum">${amt}</td>
         <td>${status}</td>
         <td><div class="acts">
-          <button class="btn sm" type="button" data-h="edit" data-id="${d.id}">Open</button>
           <button class="btn sm" type="button" data-h="pdf" data-id="${d.id}">PDF</button>
           ${d.type==="quotation"?`<button class="btn sm" type="button" data-h="convert" data-id="${d.id}">To invoice</button>`:""}
           ${!isRec?`<button class="btn sm" type="button" data-h="pay" data-id="${d.id}">Receipt</button>`:""}
           <button class="btn sm ghost" type="button" data-h="dup" data-id="${d.id}">Copy</button>
-          ${isAdmin()?`<button class="btn sm ghost danger" type="button" data-h="del" data-id="${d.id}">Delete</button>`:""}
         </div></td></tr>`;
     }).join("")}</tbody></table></div>`;
 }
@@ -2243,6 +2284,10 @@ function closeModal(s){$(s).classList.remove("open");if(lastFocus&&lastFocus.foc
 function askConfirm(html,okLabel){
   return new Promise(res=>{
     $("#cfMsg").innerHTML=html;$("#cfYes").textContent=okLabel||"OK";
+    const danger=/delete|remove|erase|discard|leave/i.test(okLabel||"");
+    const cm=$("#confirmModal");cm.classList.toggle("danger",danger);cm.classList.remove("open");void cm.offsetWidth;
+    $("#cfTitle").textContent=danger?"Are you sure?":"Please confirm";
+    setTimeout(()=>hudTag($("#cfTag"),danger?"A.C.T.I.V.E › WARNING":"A.C.T.I.V.E › CONFIRM"),30);
     const done=v=>{$("#cfYes").onclick=$("#cfNo").onclick=null;closeModal("#confirmModal");res(v)};
     $("#cfYes").onclick=()=>done(true);$("#cfNo").onclick=()=>done(false);
     openModal("#confirmModal");
@@ -2506,21 +2551,24 @@ function renderCatRevenue(entries,basis){
 
 /* =================== Customers by state (from billing address) =================== */
 const MY_STATES=["Kuala Lumpur","Selangor","Putrajaya","Johor","Penang","Perak","Negeri Sembilan","Melaka","Pahang","Kedah","Kelantan","Terengganu","Perlis","Sabah","Sarawak","Labuan"];
+// Each pattern finds a state or a well-known town in that state. The match nearest the END of the address wins,
+// because the state/town is normally written last. State names used as street names ("Jalan Tun Perak") are ignored.
 const ST_WORDS=[
-  [/\bputrajaya\b/i,"Putrajaya"],[/\blabuan\b/i,"Labuan"],
-  [/kuala\s*lumpur|\bw\.?\s*p\.?\s*kl\b|\bkl\b|bukit jalil|cheras|kepong|setapak|bangsar|mont\s*kiara|sentul|wangsa maju|sri petaling|bukit bintang|titiwangsa|brickfields|segambut|desa park/i,"Kuala Lumpur"],
-  [/selangor|petaling jaya|\bp\.?\s*j\b|shah alam|subang|puchong|klang|cyberjaya|seri kembangan|serdang|kajang|bangi|rawang|ampang|sungai buloh|damansara|semenyih|sepang|selayang|gombak|banting|kuala selangor|dengkil|sunway|ara damansara|kota damansara|setia alam|cyberjaya/i,"Selangor"],
-  [/johor|\bjb\b|iskandar puteri|nusajaya|skudai|batu pahat|muar|kluang|kulai|pasir gudang|segamat/i,"Johor"],
-  [/penang|pulau pinang|george\s*town|butterworth|bayan lepas|bukit mertajam|seberang perai/i,"Penang"],
-  [/perak|\bipoh\b|taiping|teluk intan|kampar|lumut|sitiawan/i,"Perak"],
-  [/negeri sembilan|seremban|nilai|port dickson/i,"Negeri Sembilan"],
-  [/melaka|malacca/i,"Melaka"],[/pahang|kuantan|bentong|genting|cameron highlands|temerloh/i,"Pahang"],
-  [/kedah|alor setar|sungai petani|langkawi|kulim/i,"Kedah"],[/kelantan|kota bharu/i,"Kelantan"],
-  [/terengganu|kuala terengganu|kemaman/i,"Terengganu"],[/perlis|kangar/i,"Perlis"],
-  [/sabah|kota kinabalu|sandakan|tawau/i,"Sabah"],[/sarawak|kuching|miri|sibu|bintulu/i,"Sarawak"]
+  [/kuala\s*lumpur|\bw\.?\s*p\.?\s*k\.?\s*l\b|\bk\.?\s*l\b|bukit\s*jalil|cheras|kepong|setapak|bangsar|mont\s*kiara|sentul|wangsa\s*maju|sri\s*petaling|bukit\s*bintang|titiwangsa|brickfields|segambut|desa\s*park|sri\s*hartamas|kuchai\s*lama|\bttdi\b|taman\s*tun\s*dr\.?\s*ismail|jalan\s*klang\s*lama|old\s*klang\s*road|bandar\s*tun\s*razak|salak\s*selatan|pandan\s*jaya|setiawangsa|batu\s*caves?\s*kl/gi,"Kuala Lumpur"],
+  [/putrajaya/gi,"Putrajaya"],[/labuan/gi,"Labuan"],
+  [/selangor|petaling\s*jaya|\bp\.?\s*j\b|shah\s*alam|subang|puchong|(?<!old\s|jalan\s)\bklang\b(?!\s*lama)|cyberjaya|seri\s*kembangan|serdang|kajang|bangi|rawang|ampang\s*jaya|sungai\s*buloh|semenyih|sepang|selayang|gombak|banting|dengkil|sunway|ara\s*damansara|kota\s*damansara|damansara\s*(utama|jaya|perdana|damai)|mutiara\s*damansara|setia\s*alam|kelana\s*jaya|bandar\s*utama|kota\s*kemuning|port\s*klang|batu\s*caves|balakong|hulu\s*langat|kuala\s*selangor/gi,"Selangor"],
+  [/johor|\bjb\b|iskandar\s*puteri|nusajaya|skudai|batu\s*pahat|\bmuar\b|kluang|kulai|pasir\s*gudang|segamat|pontian/gi,"Johor"],
+  [/penang|pulau\s*pinang|george\s*town|butterworth|bayan\s*lepas|bukit\s*mertajam|seberang\s*perai|\bnibong\s*tebal/gi,"Penang"],
+  [/perak|\bipoh\b|taiping|teluk\s*intan|kampar|lumut|sitiawan|seri\s*iskandar/gi,"Perak"],
+  [/negeri\s*sembilan|\bn\.?\s*sembilan|seremban|\bnilai\b|port\s*dickson/gi,"Negeri Sembilan"],
+  [/melaka|malacca|ayer\s*keroh/gi,"Melaka"],
+  [/pahang|kuantan|bentong|genting\s*highlands?|cameron\s*highlands|temerloh|raub/gi,"Pahang"],
+  [/kedah|alor\s*setar|sungai\s*petani|langkawi|kulim/gi,"Kedah"],[/kelantan|kota\s*bharu/gi,"Kelantan"],
+  [/terengganu|kemaman|dungun/gi,"Terengganu"],[/perlis|kangar/gi,"Perlis"],
+  [/sabah|kota\s*kinabalu|sandakan|tawau/gi,"Sabah"],[/sarawak|kuching|\bmiri\b|\bsibu\b|bintulu/gi,"Sarawak"]
 ];
 function stateFromPostcode(pc){
-  const n=+pc, p=Math.floor(n/1000);
+  const p=Math.floor((+pc)/1000);
   if(p>=1&&p<=2)return "Perlis"; if(p>=5&&p<=9)return "Kedah"; if(p>=10&&p<=14)return "Penang";
   if(p>=15&&p<=18)return "Kelantan"; if(p>=20&&p<=24)return "Terengganu"; if((p>=25&&p<=28)||p===39||p===49||p===69)return "Pahang";
   if(p>=30&&p<=36)return "Perak"; if(p>=40&&p<=48)return "Selangor"; if(p===62)return "Putrajaya";
@@ -2528,16 +2576,19 @@ function stateFromPostcode(pc){
   if(p>=75&&p<=78)return "Melaka"; if(p>=79&&p<=86)return "Johor"; if(p===87)return "Labuan";
   if(p>=88&&p<=91)return "Sabah"; if(p>=93&&p<=98)return "Sarawak"; return "";
 }
+const ROAD_BEFORE=/(jalan|jln\.?|lorong|lrg\.?|lebuh|lebuhraya|persiaran|lingkaran|tun|tuanku|sultan|sultanah|raja|wisma|menara|bangunan|kompleks|plaza|medan)\s+((tun|sultan|raja|tuanku)\s+)?$/i;
 function stateOfText(t){
-  t=String(t||"");if(!t.trim())return "";
-  if(/\bsingapore\b/i.test(t))return "Overseas";
-  const pc=t.match(/\b(\d{5})\b/);
-  // a full state name wins; then the postcode; then a known town
-  for(const s of MY_STATES){if(new RegExp("\\b"+s.replace(/ /g,"\\s*")+"\\b","i").test(t))return s}
-  if(/pulau pinang/i.test(t))return "Penang";
-  if(pc){const s=stateFromPostcode(pc[1]);if(s)return s}
-  for(const [re,s] of ST_WORDS){if(re.test(t))return s}
-  return "";
+  t=String(t||"").replace(/\s+/g," ").trim();if(!t)return "";
+  if(/\bsingapore\b|\bthailand\b|\bindonesia\b|\bbrunei\b/i.test(t))return "Overseas";
+  // 1) Postcode is the most reliable: use the last 5-digit number that is a real Malaysian postcode
+  const pcs=[...t.matchAll(/(?<![\d-])(\d{5})(?![\d-])/g)].map(m=>stateFromPostcode(m[1])).filter(Boolean);
+  if(pcs.length)return pcs[pcs.length-1];
+  // 2) Otherwise the state or town written nearest the end (ignoring street names like "Jalan Perak")
+  let best=null;
+  for(const [re,s] of ST_WORDS){re.lastIndex=0;let m;
+    while((m=re.exec(t))){if(ROAD_BEFORE.test(t.slice(Math.max(0,m.index-24),m.index)))continue;
+      if(!best||m.index>best.i)best={i:m.index,s};}}
+  return best?best.s:"";
 }
 let custStateCache=null, custStateCount=-1;
 function custStates(){
@@ -2806,7 +2857,7 @@ function jlQuick(title,steps,ms){
       `<div class="chip" style="top:${top+10}px;right:${Math.max(14,innerWidth-r.right+4)}px">A.C.T.I.V.E › <b></b></div>`;
     document.body.appendChild(fx);
     const b=fx.querySelector(".chip b"),txt=NAMES[n]||"";let k=0;(function t(){b.textContent=txt.slice(0,++k);if(k<txt.length)setTimeout(t,22)})();
-    setTimeout(()=>fx.remove(),1200);
+    setTimeout(()=>fx.remove(),1400);
   }
   switchTab=function(n){
     const v=$(VIEWS[n]),was=v&&!v.hidden;
@@ -2869,6 +2920,20 @@ async function runLoginModal(){
     const r=e.target.closest("[data-rpw]");if(r){openLoginModal("reset",r.dataset.rpw,r.dataset.who)}
   });
 })();
+
+/* =================== History: open by tapping the row =================== */
+(function(){
+  const hb=$("#histBody");
+  hb.addEventListener("click",e=>{
+    if(e.target.closest("[data-h],button,select,a,input,label"))return;
+    const tr=e.target.closest("tr[data-open]");if(tr)loadDoc(tr.dataset.open);
+  });
+  hb.addEventListener("keydown",e=>{
+    if((e.key==="Enter"||e.key===" ")&&e.target.matches&&e.target.matches("tr[data-open]")){e.preventDefault();loadDoc(e.target.dataset.open)}
+  });
+  $("#delDocBtn").addEventListener("click",()=>{if(current&&current.id)deleteDoc(current.id)});
+})();
+function hudTag(el,txt){if(!el)return;el.textContent="";let i=0;(function t(){el.textContent=txt.slice(0,++i);if(i<txt.length)setTimeout(t,22)})()}
 
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
 
