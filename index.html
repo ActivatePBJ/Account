@@ -691,6 +691,36 @@
   .cv-leg{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--ink-soft)}
   .cv-leg i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
 
+  /* ---------- History grouped by booking ---------- */
+  .hv-seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden}
+  .hv-seg button{border:0;background:transparent;color:var(--ink-soft);padding:6px 12px;font-size:12px;font-weight:700}
+  .hv-seg button[aria-pressed="true"]{background:var(--brand);color:var(--on-brand)}
+  table.hist.grp td{vertical-align:top}
+  .bk-docs{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .bk-doc{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;font-size:12.5px}
+  .bk-doc a{color:var(--accent);font-weight:700;text-decoration:none;cursor:pointer;white-space:nowrap}
+  .bk-doc a:hover{text-decoration:underline}
+  .bk-doc .muted{font-size:11.5px}
+  .bk-none{font-size:12px;color:var(--ink-faint)}
+  .bk-money div{white-space:nowrap}
+  .bk-money .bal{font-weight:800}
+  .bk-money .bal.zero{color:var(--green)}
+  .bk-money .bal.due{color:var(--amber)}
+
+  /* ---------- link old documents into a booking ---------- */
+  .lk-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 14px;margin-bottom:10px;border:1px solid var(--accent);border-radius:var(--radius-sm);background:var(--accent-soft);font-size:13.5px}
+  .lk-bar .t{flex:1;min-width:220px}
+  .lk-btn{border:1px dashed var(--amber);background:transparent;color:var(--amber);font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .lk-btn:hover{background:var(--amber-tint)}
+  .lk-sug{font-size:11.5px;color:var(--ink-faint)}
+  #linkModal .modal{max-width:620px}
+  .lk-list{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto;margin-top:8px}
+  .lk-item{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line-strong);border-radius:10px;cursor:pointer;font-size:13.5px}
+  .lk-item:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+  .lk-item input{width:18px;height:18px;accent-color:var(--brand);margin-top:2px;flex:none}
+  .lk-item .why{font-size:12px;color:var(--ink-faint)}
+  .lk-item .score{margin-left:auto;font-size:11px;font-weight:800;color:var(--green);white-space:nowrap}
+
   /* ---------- sign-in gate ---------- */
   .gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--ground)}
   .gate-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 24px}
@@ -1014,6 +1044,7 @@
       <select id="fltStatus" aria-label="Status"><option value="all">Any status</option><option value="open">Needs action (pending / unpaid / deposit)</option><option value="pending">Pending quotes</option><option value="accepted">Accepted quotes</option><option value="expired">Expired quotes</option><option value="unpaid">Unpaid invoices</option><option value="deposit">Deposit paid</option><option value="paid">Paid</option><option value="noroller">Receipts without Roller ID</option><option value="orphan">Leftovers from deleted documents</option></select>
       <select id="fltMonth" aria-label="Month"></select>
       <span class="spacer"></span>
+      <span class="hv-seg" role="group" aria-label="History view"><button type="button" data-hv="booking">By booking</button><button type="button" data-hv="doc">All documents</button></span>
       <button class="btn sm" type="button" id="csvBtn">Export Excel (CSV)</button>
       <button class="btn sm" type="button" id="exportBtn">Backup</button>
       <button class="btn sm" type="button" id="importBtn">Restore</button>
@@ -1261,6 +1292,14 @@
       <div class="hint" id="fuBy"></div>
     </div>
     <div class="m-f"><button class="btn ghost danger" type="button" id="fuUndo" style="margin-right:auto">Not done yet</button><button class="btn" type="button" id="fuSave">Save progress</button><button class="btn primary" type="button" id="fuDone">Mark as done</button></div>
+  </div>
+</div>
+
+<div class="modal-back" id="linkModal" role="dialog" aria-modal="true" aria-labelledby="lkTitle">
+  <div class="modal small">
+    <div class="m-h"><div><span class="hud-tag" id="lkTag"></span><h3 id="lkTitle">Link to a booking</h3></div><button class="btn ghost" type="button" id="lkClose" style="margin-left:auto">Close</button></div>
+    <div class="m-b"><div id="lkInfo" class="hint" style="font-size:13px"></div><input type="text" id="lkSearch" placeholder="Search number or customer" style="margin-top:10px"><div class="lk-list" id="lkList"></div></div>
+    <div class="m-f"><button class="btn" type="button" id="lkCancel">Cancel</button><button class="btn primary" type="button" id="lkGo">Link</button></div>
   </div>
 </div>
 
@@ -3383,6 +3422,169 @@ function renderConv(){
     <div class="cv-leg"><span><i style="background:var(--accent)"></i>Became an invoice</span><span><i style="background:var(--surface-2);border:1px solid var(--line-strong)"></i>Quotation only</span></div>
     <div class="dash-note">Top numbers follow the period above; the chart shows the last 6 months by quotation date.${qs.length?" Breakdown: "+inv+" became invoices + "+conf+" confirmed (no invoice yet) + "+open+" still open + "+lost+" declined/expired = "+qs.length+" sent.":""}${conf?" “Confirmed, no invoice yet” = accepted or paid (deposit recorded) but not converted to an invoice.":""}${direct?" "+direct+" invoice"+(direct>1?"s were":" was")+" issued without a quotation.":""}</div>`;
 }
+
+/* =================== History: one row per booking (quotation · invoice · receipts) =================== */
+let histView="booking";try{const v=localStorage.getItem("activate_pbj_histview");if(v==="doc"||v==="booking")histView=v}catch(_){}
+function bookingGroups(){
+  const root=new Map(), byId=new Map(docs.map(d=>[d.id,d]));
+  const find=id=>{let d=byId.get(id),seen=0;while(d&&seen++<6){
+      if(d.type==="receipt"&&d.linkedId&&byId.has(d.linkedId)){d=byId.get(d.linkedId);continue}
+      if(d.type==="invoice"&&d.fromQuoteId&&byId.has(d.fromQuoteId)){d=byId.get(d.fromQuoteId);continue}
+      break}return d?d.id:id};
+  docs.forEach(d=>{const r=find(d.id);if(!root.has(r))root.set(r,[]);root.get(r).push(d)});
+  return [...root.values()].map(list=>{
+    const qs=list.filter(d=>d.type==="quotation"),inv=list.filter(d=>d.type==="invoice"),rc=list.filter(d=>d.type==="receipt").sort((a,b)=>payTime(a).localeCompare(payTime(b)));
+    const q=qs[0]||null,iv=inv[0]||null,main=iv||q||rc[rc.length-1];
+    const totDoc=iv||q||rc[0], o=totDoc.type==="quotation"?(q.convertedToId?itinOption(q):itinOption(q)):(totDoc.options[0]||{items:[]});
+    let total=optTotals(o,totDoc.deposit).grand, paid=rc.reduce((t,x)=>t+num(x.amount),0);
+    if(iv&&!rc.length&&iv.status==="paid")paid=total;
+    if(iv&&!rc.length&&iv.status==="deposit")paid=optTotals(o,iv.deposit).dep;
+    const bal=Math.max(0,total-paid), last=list.reduce((m,d)=>Math.max(m,d.updatedAt||d.createdAt||0),0);
+    const latestDate=list.map(d=>d.date||"").sort().pop();
+    let st,stc;
+    if(paid>0&&bal<=0.004){st="Fully paid";stc="paid"}
+    else if(paid>0){st="Deposit paid";stc="deposit"}
+    else if(iv){st="Invoiced, unpaid";stc="unpaid"}
+    else if(q){const es=effStatus(q);st=es==="accepted"?"Confirmed":es==="declined"?"Declined":es==="expired"?"Expired":"Quoted";stc=es==="pending"?"pending":es}
+    else {st="Receipt";stc="received"}
+    const multiQ=!iv&&q&&q.options.length>1;
+    return {list,q,qs,iv,inv,rc,main,total,paid,bal,st,stc,last,latestDate,multiQ,rollerId:list.map(d=>d.rollerId).find(Boolean)||""};
+  }).sort((a,b)=>(b.latestDate||"").localeCompare(a.latestDate||"")||b.last-a.last);
+}
+function renderGroupedHistory(){
+  renderKPIs();renderMonthFilter();
+  const body=$("#histBody");
+  if(!docs.length){body.innerHTML=`<div class="empty-state"><div class="big">No saved documents yet</div><div>Create a quotation and press Save — it will appear here.</div></div>`;return}
+  const s=$("#search").value.trim().toLowerCase(), mo=$("#fltMonth").value;
+  const gs=bookingGroups().filter(g=>{
+    if(mo!=="all"&&!g.list.some(d=>(d.date||"").slice(0,7)===mo))return false;
+    if(s&&!g.list.some(d=>(d.number+" "+d.bill.name+" "+d.bill.company+" "+d.bill.email+" "+d.bill.phone+" "+(d.rollerId||"")).toLowerCase().includes(s)))return false;
+    return true;});
+  if(!gs.length){body.innerHTML=`<div class="empty-state"><div class="big">Nothing matches</div><div>Try another search or month.</div></div>`;return}
+  const sugN=docs.filter(lkUnlinked).filter(d=>lkSuggestion(d)).length, loneN=docs.filter(lkUnlinked).length;
+  const lkBar=loneN?`<div class="lk-bar"><span class="t">🔗 <b>${loneN}</b> older receipt/invoice${loneN>1?"s are":" is"} not linked to a booking${sugN?" — <b>"+sugN+"</b> have a clear match":""}. Link them so each booking shows on one row.</span>${sugN?`<button class="btn sm primary" type="button" id="lkAll">Link ${sugN} suggested</button>`:""}</div>`:"";
+  const a=(d,txt)=>`<a data-od="${d.id}" title="Open ${esc(d.number)}">${esc(txt||d.number)}</a>`;
+  body.innerHTML=lkBar+`<div class="table-wrap"><table class="hist grp"><thead><tr><th>Customer</th><th>Event</th><th>Quotation</th><th>Invoice</th><th>Receipts</th><th class="r">Total · Paid · Balance</th><th>Status</th><th class="r">Actions</th></tr></thead><tbody>${
+    gs.map(g=>{
+      const m=g.main, c=m.bill;
+      const lone=g.list.length===1&&(m.type==="receipt"||m.type==="invoice")&&lkUnlinked(m);
+      const sug=lone?lkSuggestion(m):null;
+      const lkCell=lone?`<button class="lk-btn" type="button" data-lk="${m.id}">Link…</button>${sug?`<div class="lk-sug">Looks like ${esc(sug.t.number)}</div>`:""}`:"";
+      const qCell=g.qs.length?`<div class="bk-docs">${g.qs.map(q=>`<div class="bk-doc">${a(q)}<span class="muted">${fmtShort(q.date)}${q.options.length>1?" · "+q.options.length+" options":""}</span></div>`).join("")}</div>`:(m.type==="invoice"&&lone?lkCell:`<span class="bk-none">—</span>`);
+      const iCell=g.inv.length?`<div class="bk-docs">${g.inv.map(i=>`<div class="bk-doc">${a(i)}<span class="muted">${fmtShort(i.date)}</span></div>`).join("")}</div>`:(m.type==="receipt"&&lone?lkCell:`<span class="bk-none">${g.q&&!["declined","expired"].includes(effStatus(g.q))?"Not yet":"—"}</span>`);
+      const rCell=g.rc.length?`<div class="bk-docs">${g.rc.map(r=>`<div class="bk-doc">${a(r)}<span class="muted">${esc(r.payFor||"Payment")} · RM ${money(r.amount)} · ${fmtShort(r.paidDate||r.date)}${r.payMethod?" · "+esc(r.payMethod):""}</span></div>`).join("")}</div>`:`<span class="bk-none">No payment yet</span>`;
+      const ev=g.list.find(d=>d.eventDate);
+      const acts=[];
+      acts.push(`<button class="btn sm" type="button" data-h="pdf" data-id="${m.id}">PDF</button>`);
+      if(g.q&&!g.iv&&!["declined","expired"].includes(effStatus(g.q)))acts.push(`<button class="btn sm" type="button" data-h="convert" data-id="${g.q.id}">To invoice</button>`);
+      if(g.bal>0.004&&(g.iv||g.q))acts.push(`<button class="btn sm" type="button" data-h="pay" data-id="${(g.iv||g.q).id}">Receipt</button>`);
+      return `<tr class="row-open" data-open="${m.id}" tabindex="0" title="Open ${esc(m.number)}">
+        <td><div class="doc-no" style="color:var(--ink)">${esc(custName(m))}</div>${c.company&&c.name?`<div class="muted">${esc(c.name)}</div>`:""}${g.rollerId?`<div class="muted">Roller ${esc(g.rollerId)}</div>`:""}</td>
+        <td class="muted">${ev?fmtShort(ev.eventDate)+(ev.eventTime?"<br>"+fmtTime(ev.eventTime):""):"TBC"}</td>
+        <td>${qCell}</td><td>${iCell}</td><td>${rCell}</td>
+        <td class="r tnum bk-money"><div>RM ${money(g.total)}${g.multiQ?' <span class="muted">(option 1)</span>':""}</div><div class="muted">paid RM ${money(g.paid)}</div><div class="bal ${g.bal<=0.004?"zero":"due"}">${g.bal<=0.004?"Nothing due":"due RM "+money(g.bal)}</div></td>
+        <td><span class="badge ${g.stc}">${esc(g.st)}</span>${(()=>{const sd=g.iv||g.q;if(!sd)return "";const opts=sd.type==="invoice"?INV_STATUS:QUO_STATUS;
+          return `<div style="margin-top:6px"><select class="status-sel" data-status="${sd.id}" aria-label="Change ${sd.type} status" title="${sd.type==="invoice"?"Invoice":"Quotation"} status">${opts.map(x=>`<option value="${x[0]}"${x[0]===sd.status?" selected":""}>${x[1]}</option>`).join("")}</select></div>`})()}</td>
+        <td><div class="acts">${acts.join("")}</div></td></tr>`;
+    }).join("")}</tbody></table></div>`;
+}
+const baseRenderHistory=renderHistory;
+renderHistory=function(){
+  $$("[data-hv]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.hv===histView)));
+  const filt=$("#fltType").value!=="all"||$("#fltStatus").value!=="all";
+  const tip=document.querySelector(".hist-tip");
+  if(histView==="doc"||filt){if(tip)tip.textContent=histView==="booking"&&filt?"Showing all documents because a type/status filter is on. Tap any row to open it.":"Tap any row to open it.";return baseRenderHistory()}
+  if(tip)tip.textContent="One row per booking: quotation → invoice → receipts. Tap a document number to open it, or the row to open the latest one.";
+  renderGroupedHistory();
+};
+(function(){
+  document.addEventListener("click",e=>{const b=e.target.closest("[data-hv]");if(!b)return;histView=b.dataset.hv;try{localStorage.setItem("activate_pbj_histview",histView)}catch(_){}renderHistory()});
+  $("#histBody").addEventListener("click",e=>{const l=e.target.closest("[data-od]");if(l){e.preventDefault();e.stopPropagation();loadDoc(l.dataset.od)}},true);
+})();
+
+/* =================== link older documents into one booking =================== */
+function lkNorm(s){return String(s||"").toLowerCase().replace(/\(.*?\)/g,"").replace(/\b(sdn\.?\s*bhd\.?|berhad|bhd\.?|pte\.?\s*ltd\.?|ltd\.?|plt|enterprise)\b/g,"").replace(/[^a-z0-9]/g,"")}
+function lkPhone(s){return String(s||"").replace(/\D/g,"").replace(/^6?0/,"")}
+function lkUnlinked(d){
+  if(d.type==="receipt")return !(d.linkedId&&docs.some(x=>x.id===d.linkedId));
+  if(d.type==="invoice")return !(d.fromQuoteId&&docs.some(x=>x.id===d.fromQuoteId));
+  return false;
+}
+function lkTotal(t){return t.type==="quotation"?Math.max(...t.options.map(o=>optTotals(o,t.deposit).grand)):optTotals(t.options[0]||{items:[]},t.deposit).grand}
+function lkCandidates(d){
+  const name=lkNorm(d.bill.company||d.bill.name), ph=lkPhone(d.bill.phone), amt=d.type==="receipt"?num(d.amount):optTotals(d.options[0]||{items:[]},d.deposit).grand;
+  const pool=docs.filter(t=>t.id!==d.id&&(d.type==="receipt"?(t.type==="invoice"||t.type==="quotation"):(t.type==="quotation"&&!(t.convertedToId&&docs.some(x=>x.id===t.convertedToId)))));
+  return pool.map(t=>{
+    let sc=0;const why=[];
+    const tn=lkNorm(t.bill.company||t.bill.name);
+    if(name&&tn&&(tn===name||tn.includes(name)||name.includes(tn))){sc+=3;why.push("same customer")}
+    if(ph&&ph.length>6&&lkPhone(t.bill.phone)===ph){sc+=2;why.push("same phone")}
+    if(d.eventDate&&t.eventDate&&d.eventDate===t.eventDate){sc+=3;why.push("same event date")}
+    if(d.rollerId&&t.rollerId&&d.rollerId===t.rollerId){sc+=5;why.push("same Roller ID")}
+    const tt=lkTotal(t);
+    if(d.type==="invoice"){if(t.options.some(o=>Math.abs(optTotals(o,t.deposit).grand-amt)<1)){sc+=3;why.push("same total")}}
+    else if(amt>0&&amt<=tt+0.5){sc+=1;why.push("amount fits")}
+    if((t.date||"")<=(d.date||"9999"))sc+=0.5;
+    // a receipt should go to the invoice when the quotation already has one
+    if(d.type==="receipt"&&t.type==="quotation"&&t.convertedToId&&docs.some(x=>x.id===t.convertedToId))sc-=2;
+    return {t,sc,why};
+  }).filter(x=>x.sc>=3).sort((a,b)=>b.sc-a.sc||(b.t.date||"").localeCompare(a.t.date||""));
+}
+function lkSuggestion(d){const c=lkCandidates(d);if(!c.length)return null;if(c.length>1&&c[0].sc===c[1].sc)return null;return c[0].sc>=6?c[0]:null}
+async function lkApply(d,t){
+  const ops=[];
+  if(d.type==="receipt"){
+    ops.push([d.id,y=>{y.linkedId=t.id;y.linkedNo=t.number;y.linkedType=t.type;if(!y.rollerId&&t.rollerId)y.rollerId=t.rollerId;y.updatedAt=Date.now()}]);
+    ops.push([t.id,()=>syncLinked(t.id)]);
+    if(!t.rollerId&&d.rollerId)ops.push([t.id,y=>{y.rollerId=d.rollerId}]);
+  }else{
+    ops.push([d.id,y=>{y.fromQuoteId=t.id;y.fromQuote=t.number;if(!y.rollerId&&t.rollerId)y.rollerId=t.rollerId;y.updatedAt=Date.now()}]);
+    ops.push([t.id,y=>{y.convertedToId=d.id;y.convertedTo=d.number;if(y.status==="pending")y.status="accepted";if(!y.rollerId&&d.rollerId)y.rollerId=d.rollerId;y.updatedAt=Date.now()}]);
+  }
+  await saveLinked(ops);
+}
+let lkCur=null;
+function openLink(id){
+  const d=docs.find(x=>x.id===id);if(!d)return;lkCur=d;
+  $("#lkTitle").textContent=(d.type==="receipt"?"Link receipt ":"Link invoice ")+d.number;
+  $("#lkInfo").innerHTML=`${esc(d.bill.company||d.bill.name||"—")} · ${d.type==="receipt"?"RM "+money(d.amount)+" "+esc(d.payFor||""):"RM "+money(optTotals(d.options[0]||{items:[]},d.deposit).grand)} · ${fmtShort(d.date)}${d.eventDate?" · event "+fmtShort(d.eventDate):""}<br>Choose the ${d.type==="receipt"?"quotation or invoice this payment was for":"quotation this invoice came from"}. Best matches are on top.`;
+  $("#lkSearch").value="";lkRender();
+  const m=$("#linkModal");m.classList.remove("open");void m.offsetWidth;openModal("#linkModal");setTimeout(()=>hudTag($("#lkTag"),"A.C.T.I.V.E › LINK DOCUMENTS"),40);
+}
+function lkRender(){
+  const d=lkCur;if(!d)return;const q=$("#lkSearch").value.trim().toLowerCase();
+  let list=lkCandidates(d);
+  if(q){const ids=new Set(list.map(x=>x.t.id));
+    const extra=docs.filter(t=>t.id!==d.id&&!ids.has(t.id)&&(d.type==="receipt"?["invoice","quotation"].includes(t.type):t.type==="quotation")&&(t.number+" "+t.bill.company+" "+t.bill.name).toLowerCase().includes(q)).map(t=>({t,sc:0,why:["search match"]}));
+    list=list.filter(x=>(x.t.number+" "+x.t.bill.company+" "+x.t.bill.name).toLowerCase().includes(q)).concat(extra);}
+  $("#lkList").innerHTML=list.length?list.slice(0,30).map((x,i)=>`<label class="lk-item"><input type="radio" name="lkPick" value="${x.t.id}"${i===0&&x.sc>=6?" checked":""}>
+      <div><b>${esc(x.t.number)}</b> · ${esc(x.t.bill.company||x.t.bill.name||"—")}<div class="why">${x.t.type==="invoice"?"Invoice":"Quotation"} · ${fmtShort(x.t.date)} · RM ${money(lkTotal(x.t))}${x.t.eventDate?" · event "+fmtShort(x.t.eventDate):""} · ${esc(x.why.join(", "))}</div></div>
+      ${x.sc>=6?'<span class="score">Best match</span>':""}</label>`).join(""):`<div class="dash-empty">No likely match. Type a number or customer name above.</div>`;
+}
+async function lkGo(){
+  const r=document.querySelector('input[name="lkPick"]:checked');if(!r){toast("Choose a document to link to");return}
+  const t=docs.find(x=>x.id===r.value),d=lkCur;if(!t||!d)return;
+  const b=$("#lkGo");b.disabled=true;b.textContent="Linking…";
+  try{await lkApply(d,t);closeModal("#linkModal");toast("Linked "+d.number+" → "+t.number);renderHistory();updateHistCount()}
+  catch(e){toast("Not linked — "+dbErr(e))}finally{b.disabled=false;b.textContent="Link"}
+}
+async function lkAutoAll(){
+  const pairs=docs.filter(lkUnlinked).map(d=>({d,s:lkSuggestion(d)})).filter(x=>x.s);
+  if(!pairs.length){toast("Nothing to link automatically");return}
+  const html="Link these <b>"+pairs.length+"</b> older document"+(pairs.length>1?"s":"")+" to their booking?<div style=\"margin-top:12px;font-size:14px\">"+pairs.map(x=>"• <b>"+esc(x.d.number)+"</b> → "+esc(x.s.t.number)+" <span class=\"muted\">("+esc(x.s.why.join(", "))+")</span>").join("<br>")+"</div>";
+  if(!(await askConfirm(html,"Link all")))return;
+  let n=0;for(const x of pairs){try{await lkApply(x.d,x.s.t);n++}catch(e){}}
+  toast("Linked "+n+" document"+(n===1?"":"s"));renderHistory();updateHistCount();
+}
+(function(){
+  $("#lkGo").addEventListener("click",lkGo);
+  ["lkClose","lkCancel"].forEach(i=>$("#"+i).addEventListener("click",()=>closeModal("#linkModal")));
+  $("#lkSearch").addEventListener("input",lkRender);
+  $("#histBody").addEventListener("click",e=>{
+    const l=e.target.closest("[data-lk]");if(l){e.preventDefault();e.stopPropagation();openLink(l.dataset.lk);return}
+    const a=e.target.closest("#lkAll");if(a){e.preventDefault();e.stopPropagation();lkAutoAll()}
+  },true);
+})();
 
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
 
