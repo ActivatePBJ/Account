@@ -253,6 +253,8 @@
   .dash-tools .spacer{flex:1}
   .dash-kpis .kpi .v{font-size:20px}
   .kpis.kpis5{grid-template-columns:repeat(5,1fr);margin-bottom:12px}
+  .orphan-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 14px;margin-bottom:12px;border:1px solid var(--amber);border-radius:var(--radius-sm);background:var(--amber-tint);font-size:13.5px}
+  .orphan-bar .t{flex:1;min-width:220px}
   .kpis.kpis5 .kpi .v{font-size:24px}
   .kpis.kpis5 .kpi.hi .v{color:var(--accent)}
   .kpis.kpis3{grid-template-columns:repeat(3,1fr)}
@@ -998,7 +1000,7 @@
     <div class="hist-tools">
       <input type="text" id="search" placeholder="Search number, Roller ID, contact or company">
       <select id="fltType" aria-label="Type"><option value="all">All types</option><option value="quotation">Quotations</option><option value="invoice">Invoices</option><option value="receipt">Receipts</option></select>
-      <select id="fltStatus" aria-label="Status"><option value="all">Any status</option><option value="open">Needs action (pending / unpaid / deposit)</option><option value="pending">Pending quotes</option><option value="accepted">Accepted quotes</option><option value="expired">Expired quotes</option><option value="unpaid">Unpaid invoices</option><option value="deposit">Deposit paid</option><option value="paid">Paid</option><option value="noroller">Receipts without Roller ID</option></select>
+      <select id="fltStatus" aria-label="Status"><option value="all">Any status</option><option value="open">Needs action (pending / unpaid / deposit)</option><option value="pending">Pending quotes</option><option value="accepted">Accepted quotes</option><option value="expired">Expired quotes</option><option value="unpaid">Unpaid invoices</option><option value="deposit">Deposit paid</option><option value="paid">Paid</option><option value="noroller">Receipts without Roller ID</option><option value="orphan">Leftovers from deleted documents</option></select>
       <select id="fltMonth" aria-label="Month"></select>
       <span class="spacer"></span>
       <button class="btn sm" type="button" id="csvBtn">Export Excel (CSV)</button>
@@ -1024,6 +1026,7 @@
       <span class="spacer"></span>
       <label>Packages from <select id="dBasis"><option value="paid">Paid bookings</option><option value="quote">Quotations sent</option></select></label>
     </div>
+    <div class="orphan-bar" id="orphanBar" hidden></div>
     <div class="kpis dash-kpis kpis5" id="dKpisTop"></div>
     <div class="kpis dash-kpis kpis3" id="dKpis"></div>
     <div class="dash-grid">
@@ -1994,17 +1997,41 @@ async function duplicateDoc(id){
 async function deleteDoc(id){
   if(!isAdmin()){toast("Only admins can delete. Mark it Declined instead, or ask an admin.");return}
   const d=docs.find(x=>x.id===id);if(!d)return;
-  if(!(await askConfirm("Delete <b>"+esc(d.number)+"</b>"+(d.bill.company?" ("+esc(d.bill.company)+")":"")+" for everyone? This can't be undone.","Delete")))return;
-  const {data,error}=await sb.from("billing_documents").delete().eq("id",id).select("id");
-  if(error){toast("Not deleted — "+dbErr(error));return}
-  if(!data||!data.length){toast("Not deleted — you don't have permission");return}
-  docs=docs.filter(x=>x.id!==id);
+  // documents made from this one: invoice from a quotation, receipts for either
+  const fam=new Set();
+  if(d.type!=="receipt"){
+    docs.forEach(x=>{if(x.type==="invoice"&&(x.fromQuoteId===id||d.convertedToId===x.id))fam.add(x.id)});
+    const parents=new Set([id,...fam]);
+    docs.forEach(x=>{if(x.type==="receipt"&&parents.has(x.linkedId))fam.add(x.id)});
+  }
+  const linked=[...fam].map(i=>docs.find(x=>x.id===i)).filter(Boolean).sort((a,b)=>(a.type==="receipt")-(b.type==="receipt"));
+  const label={quotation:"Quotation",invoice:"Invoice",receipt:"Receipt"};
+  const listHTML=linked.length?`<div style="margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:14px">
+      <div style="font-weight:700;margin-bottom:6px">Made from it (${linked.length}):</div>
+      ${linked.map(x=>`<div>• ${label[x.type]} <b>${esc(x.number)}</b>${x.type==="receipt"?" — RM "+money(x.amount)+" "+esc(x.payFor||""):""}</div>`).join("")}
+      <label style="display:flex;gap:10px;align-items:center;margin-top:10px;font-weight:600;cursor:pointer"><input type="checkbox" id="cfAlsoDel" checked style="width:18px;height:18px;accent-color:var(--danger)"> Also delete these ${linked.length} linked document${linked.length>1?"s":""} (e.g. test data)</label></div>`:"";
+  if(!(await askConfirm("Delete <b>"+esc(d.number)+"</b>"+(d.bill.company?" ("+esc(d.bill.company)+")":"")+" for everyone? This can't be undone."+listHTML,"Delete")))return;
+  const alsoEl=document.getElementById("cfAlsoDel"), also=!!(linked.length&&alsoEl&&alsoEl.checked);
+  const ids=also?[...linked.map(x=>x.id),id]:[id];   // receipts → invoice → quotation
+  const done=[];
+  for(const did of ids){
+    const {data,error}=await sb.from("billing_documents").delete().eq("id",did).select("id");
+    if(error){toast("Not deleted — "+dbErr(error));break}
+    if(!data||!data.length){toast("Not deleted — you don't have permission");break}
+    done.push(did);
+  }
+  if(!done.length)return;
+  const gone=new Set(done), goneDocs=docs.filter(x=>gone.has(x.id));
+  docs=docs.filter(x=>!gone.has(x.id));
   const fix=[];
-  if(d.type==="receipt"&&d.linkedId&&docs.some(x=>x.id===d.linkedId))fix.push([d.linkedId,()=>syncLinked(d.linkedId)]);
-  docs.forEach(x=>{if((x.type==="receipt"&&x.linkedId===id)||x.convertedToId===id)fix.push([x.id,y=>{if(y.type==="receipt"&&y.linkedId===id)y.linkedId="";if(y.convertedToId===id){y.convertedTo="";y.convertedToId=null}}])});
+  goneDocs.forEach(g=>{
+    if(g.type==="receipt"&&g.linkedId&&docs.some(x=>x.id===g.linkedId))fix.push([g.linkedId,()=>syncLinked(g.linkedId)]);
+    docs.forEach(x=>{if((x.type==="receipt"&&x.linkedId===g.id)||x.convertedToId===g.id||x.fromQuoteId===g.id)fix.push([x.id,y=>{if(y.type==="receipt"&&y.linkedId===g.id)y.linkedId="";if(y.convertedToId===g.id){y.convertedTo="";y.convertedToId=null}if(y.fromQuoteId===g.id){y.fromQuoteId=null}}])});
+  });
   await saveLinked(fix);
-  if(current.id===id){current=blankDoc(current.type);dirty=false;fillForm();renderPreview();setSaveStatus();}
-  renderHistory();updateHistCount();toast("Deleted "+d.number);
+  if(gone.has(current.id)){current=blankDoc(current.type==="receipt"?"quotation":current.type);dirty=false;fillForm();renderPreview();setSaveStatus();}
+  renderHistory();updateHistCount();
+  toast(done.length>1?"Deleted "+d.number+" and "+(done.length-1)+" linked document"+(done.length>2?"s":""):"Deleted "+d.number);
 }
 
 /* =================== convert =================== */
@@ -2198,6 +2225,7 @@ function filtered(){
     const es=effStatus(d);
     if(st==="open"&&!["pending","unpaid","deposit"].includes(es))return false;
     if(st==="noroller"){if(d.type!=="receipt"||rollerOk(d.rollerId))return false}
+    else if(st==="orphan"){if(!isOrphan(d))return false}
     else if(!["all","open"].includes(st)&&es!==st)return false;
     if(mo!=="all"&&(d.date||"").slice(0,7)!==mo)return false;
     if(s&&!(d.number+" "+d.bill.name+" "+d.bill.company+" "+d.bill.email+" "+d.bill.phone+" "+(d.rollerId||"")).toLowerCase().includes(s))return false;
@@ -2250,9 +2278,9 @@ function renderHistory(){
     list.map(d=>{
       const isRec=d.type==="receipt", es=effStatus(d), st=d.type==="invoice"?INV_STATUS:QUO_STATUS;
       let link="";
-      if(d.type==="invoice"&&d.fromQuote)link+=`<div class="link">from ${esc(d.fromQuote)}</div>`;
+      if(d.type==="invoice"&&d.fromQuote)link+=`<div class="link">from ${esc(d.fromQuote)}${isOrphan(d)?' <b style="color:var(--danger)">(deleted)</b>':""}</div>`;
       if(d.type==="quotation"&&d.convertedTo)link+=`<div class="link">→ ${esc(d.convertedTo)}</div>`;
-      if(isRec&&d.linkedNo)link+=`<div class="link">for ${esc(d.linkedNo)}</div>`;
+      if(isRec&&d.linkedNo)link+=`<div class="link">for ${esc(d.linkedNo)}${isOrphan(d)?' <b style="color:var(--danger)">(deleted)</b>':""}</div>`;
       if(d.type==="quotation"&&settings.priceEffective&&d.date<settings.priceEffective&&es==="pending")link+=`<div class="muted">Old pricing — check with ${esc(settings.priceApprover||"SM")}</div>`;
       const got=isRec?0:receivedTotal(d.id);
       let amt;
@@ -2497,6 +2525,12 @@ function openItinerary(){
 let dashRange="month";
 const PKG_NAMES={Corporate:"Corporate / team building",Party:"Birthday party",Group:"Other group",Individual:"Individual / walk-in"};
 function waPhone(p){let s=String(p||"").replace(/\D/g,"");if(!s)return "";if(s.startsWith("00"))s=s.slice(2);if(s.startsWith("0"))s="6"+s;else if(!s.startsWith("6"))s="60"+s;return s}
+// receipts / invoices whose quotation or invoice was deleted (left behind by an earlier delete)
+function isOrphan(d){
+  if(d.type==="receipt"&&d.linkedNo&&!docs.some(x=>x.id!==d.id&&x.number===d.linkedNo))return true;
+  if(d.type==="invoice"&&d.fromQuote&&!docs.some(x=>x.type==="quotation"&&x.number===d.fromQuote))return true;
+  return false;
+}
 function payDate(d){return d.paidDate||d.date||""}
 function rollerOk(v){return /^\d{9}$/.test(String(v||""))}
 function rollerHintUpd(){const h=$("#rollerHint");if(!h)return;const v=current&&current.rollerId;
@@ -2575,6 +2609,10 @@ function hbarsHTML(rows,fmt){
 }
 function groupBy(list,keyFn){const m=new Map();list.forEach(x=>{const k=keyFn(x);if(!m.has(k))m.set(k,[]);m.get(k).push(x)});return m}
 function renderDash(){
+  {const orph=docs.filter(isOrphan),bar=$("#orphanBar");
+   if(bar){bar.hidden=!orph.length;if(orph.length){const rm=orph.filter(d=>d.type==="receipt").reduce((t,d)=>t+num(d.amount),0);
+     bar.innerHTML=`<span class="t">⚠ <b>${orph.length} document${orph.length>1?"s":""}</b> (${orph.map(d=>esc(d.number)).slice(0,4).join(", ")}${orph.length>4?"…":""}) ${orph.length>1?"were":"was"} made from a quotation or invoice that has been deleted${rm?" — RM "+money(rm)+" is still counted":""}. If ${orph.length>1?"they were":"it was"} test data, delete ${orph.length>1?"them":"it"} too.</span><button class="btn sm" type="button" id="orphanGo">Review in History</button>`;
+     $("#orphanGo").onclick=()=>{$("#fltStatus").value="orphan";$("#fltType").value="all";$("#search").value="";switchTab("history")};}}}
   if(!$("#dFrom").value&&!$("#dTo").value&&dashRange!=="all"&&dashRange!=="custom")setDashDates();
   $$("#dRange [data-r]").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.r===dashRange)));
   const quotes=docs.filter(d=>d.type==="quotation"&&dashIn(d.date));
@@ -3292,9 +3330,10 @@ function renderConv(){
   const box=$("#dConv");if(!box)return;
   const isInvd=q=>!!(q.convertedToId&&docs.some(x=>x.id===q.convertedToId));
   const qs=docs.filter(d=>d.type==="quotation"&&dashIn(d.date));
-  const inv=qs.filter(isInvd).length, open=qs.filter(q=>!isInvd(q)&&effStatus(q)==="pending").length,
-        lost=qs.filter(q=>!isInvd(q)&&["declined","expired"].includes(effStatus(q))).length,
-        paidNoInv=qs.filter(q=>!isInvd(q)&&receivedTotal(q.id)>0).length;
+  // every quotation lands in exactly one group, so the four groups always add up to "sent"
+  const grp=q=>{if(isInvd(q))return "inv";if(receivedTotal(q.id)>0||q.status==="accepted")return "conf";const es=effStatus(q);return ["declined","expired"].includes(es)?"lost":"open"};
+  const G={inv:0,conf:0,open:0,lost:0};qs.forEach(q=>G[grp(q)]++);
+  const inv=G.inv, conf=G.conf, open=G.open, lost=G.lost;
   const direct=docs.filter(d=>d.type==="invoice"&&dashIn(d.date)&&!d.fromQuoteId).length;
   const pct=qs.length?Math.round(inv/qs.length*100):0;
   const ms=[];for(let i=5;i>=0;i--){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);ms.push(iso(d).slice(0,7))}
@@ -3304,6 +3343,7 @@ function renderConv(){
       <div><div class="k">Quotations sent</div><div class="v">${qs.length}</div></div>
       <div><div class="k">Became invoices</div><div class="v hi">${inv}</div></div>
       <div><div class="k">Conversion</div><div class="v hi">${pct}%</div></div>
+      <div><div class="k">Confirmed, no invoice yet</div><div class="v">${conf}</div></div>
       <div><div class="k">Still open</div><div class="v">${open}</div></div>
       <div><div class="k">Declined / expired</div><div class="v">${lost}</div></div>
     </div>
@@ -3312,7 +3352,7 @@ function renderConv(){
       <div class="cv-bar" style="height:${x.q?Math.max(3,x.q/mx*100):1}%"><i style="height:${x.q?x.i/x.q*100:0}%"></i></div></div>`).join("")}</div>
     <div class="cv-x">${mv.map(x=>`<span>${lab(x.m)}</span>`).join("")}</div>
     <div class="cv-leg"><span><i style="background:var(--accent)"></i>Became an invoice</span><span><i style="background:var(--surface-2);border:1px solid var(--line-strong)"></i>Quotation only</span></div>
-    <div class="dash-note">Top numbers follow the period above; the chart shows the last 6 months by quotation date.${paidNoInv?" "+paidNoInv+" quotation"+(paidNoInv>1?"s were":" was")+" paid without an invoice.":""}${direct?" "+direct+" invoice"+(direct>1?"s were":" was")+" issued without a quotation.":""}</div>`;
+    <div class="dash-note">Top numbers follow the period above; the chart shows the last 6 months by quotation date.${qs.length?" Breakdown: "+inv+" became invoices + "+conf+" confirmed (no invoice yet) + "+open+" still open + "+lost+" declined/expired = "+qs.length+" sent.":""}${conf?" “Confirmed, no invoice yet” = accepted or paid (deposit recorded) but not converted to an invoice.":""}${direct?" "+direct+" invoice"+(direct>1?"s were":" was")+" issued without a quotation.":""}</div>`;
 }
 
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
