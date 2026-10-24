@@ -567,9 +567,9 @@
   .hud-fx .frame i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}.hud-fx .frame i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
   @keyframes hudFrame{0%{opacity:0;transform:scale(1.06)}25%{opacity:1;transform:scale(1)}70%{opacity:1}100%{opacity:0}}
   .hud-fx .chip{position:absolute;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:clamp(16px,4.4vw,48px);font-weight:700;letter-spacing:.12em;color:#00ffff;background:rgba(2,12,18,.9);max-width:calc(100vw - 28px);
-    border:2px solid rgba(0,255,255,.6);padding:.35em .6em;border-radius:10px;box-shadow:0 0 34px rgba(0,255,255,.35);white-space:nowrap;animation:hudChip 5.5s ease forwards;text-shadow:0 0 18px rgba(0,255,255,.45)}
+    border:2px solid rgba(0,255,255,.6);padding:.35em .6em;border-radius:10px;box-shadow:0 0 34px rgba(0,255,255,.35);white-space:nowrap;animation:hudChip 2s ease-in-out forwards;text-shadow:0 0 18px rgba(0,255,255,.45)}
   .hud-fx .chip b{color:#fff;font-weight:800;font-size:1.08em}
-  @keyframes hudChip{0%{opacity:0;transform:translateY(-8px) scale(.96)}4%{opacity:.7;transform:none}91%{opacity:.7}100%{opacity:0}}
+  @keyframes hudChip{0%{opacity:0;transform:translateY(-8px) scale(.96)}25%{opacity:.7;transform:none}75%{opacity:.7;transform:none}100%{opacity:0;transform:translateY(-4px)}}
   :root[data-theme="light"] .hud-fx .chip{background:rgba(255,255,255,.92)}
   @media (prefers-reduced-motion: reduce){.hud-in,.hud-item{animation:none!important}.hud-fx{display:none!important}}
   @media print{.hud-fx{display:none!important}}
@@ -3005,8 +3005,8 @@ function jlQuick(title,steps,ms){
     fx.innerHTML=`<div class="sweep"></div><div class="frame" style="left:${Math.max(6,r.left-8)}px;top:${top}px;width:${Math.min(innerWidth-12,r.width+16)}px;height:${Math.max(60,bot-top)}px"><i></i><i></i><i></i><i></i></div>`+
       `<div class="chip" style="top:${top+10}px;right:${Math.max(14,innerWidth-r.right+4)}px">A.C.T.I.V.E › <b></b></div>`;
     document.body.appendChild(fx);
-    const b=fx.querySelector(".chip b"),txt=NAMES[n]||"";let k=0;(function t(){b.textContent=txt.slice(0,++k);if(k<txt.length)setTimeout(t,28)})();
-    setTimeout(()=>fx.remove(),5600);
+    const b=fx.querySelector(".chip b"),txt=NAMES[n]||"";let k=0;(function t(){b.textContent=txt.slice(0,++k);if(k<txt.length)setTimeout(t,16)})();
+    setTimeout(()=>fx.remove(),2100);
   }
   switchTab=function(n){
     const v=$(VIEWS[n]),was=v&&!v.hidden;
