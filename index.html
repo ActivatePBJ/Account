@@ -395,6 +395,17 @@
   .einv img{width:96px;height:96px;display:block;margin:0 auto 6px}
   .einv .kv{text-align:left;word-break:break-all;margin-top:3px}
   table.paysum{margin-bottom:6px}
+  table.payhist{margin-bottom:6px;font-size:11px}
+  table.payhist tr.ph-h td{background:#eef1ff;font-weight:700;font-size:10px;letter-spacing:.03em;text-transform:uppercase;color:#1f3864;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.payhist td{padding:5px 6px}
+  table.payhist td.r{text-align:right;width:16%}
+  table.payhist td.nw{white-space:nowrap}
+  table.payhist tr.this td{background:#d9ead3;color:#1e5631;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.payhist .tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border:1px solid #1e5631;border-radius:3px;padding:0 4px;margin-left:4px}
+  table.payhist tr.ph-sum td{font-weight:700;border-top:2px solid #999}
+  table.payhist tr.ph-sum td:first-child,table.payhist tr.ph-sum2 td:first-child,table.payhist tr.ph-bal td:first-child{text-align:right}
+  table.payhist tr.ph-bal td{font-weight:800;font-size:12px}
+  table.payhist tr.fullpaid td{background:#d9ead3;color:#1e5631;font-weight:700;text-align:center;letter-spacing:.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   table.paysum td.k{width:auto}
   table.paysum td.v{text-align:right;width:30%;font-family:Arial,Helvetica,sans-serif}
   table.paysum tr.recv td{background:#d9ead3;color:#1e5631;font-weight:700}
@@ -1539,7 +1550,12 @@ function effStatus(d){
 }
 function statusLabel(s){return ({pending:"Pending",accepted:"Accepted",declined:"Declined",expired:"Expired",unpaid:"Unpaid",deposit:"Deposit Paid",paid:"Paid",received:"Received"})[s]||s}
 function receivedTotal(id,exceptId){if(!id)return 0;return docs.filter(x=>x.type==="receipt"&&x.linkedId===id&&x.id!==exceptId).reduce((a,x)=>a+num(x.amount),0)}
-function priorReceipts(d){if(!d.linkedId)return [];const c=d.createdAt||Date.now();return docs.filter(x=>x.type==="receipt"&&x.id!==d.id&&x.linkedId===d.linkedId&&(x.createdAt||0)<c).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0))}
+// all quotation/invoice ids that belong to the same booking (quotation ↔ its invoice)
+function bookingFamily(id){const fam=new Set();if(!id)return fam;const add=i=>{if(!i||fam.has(i))return;fam.add(i);const x=docs.find(y=>y.id===i);if(x){add(x.fromQuoteId);add(x.convertedToId)}};add(id);return fam}
+function payTime(x){return (x.paidDate||x.date||"")+" "+(x.paidTime||"")}
+function familyReceipts(d){const fam=bookingFamily(d.type==="receipt"?d.linkedId:d.id);if(!fam.size)return d.type==="receipt"?[d]:[];
+  return docs.filter(x=>x.type==="receipt"&&fam.has(x.linkedId)).sort((a,b)=>payTime(a).localeCompare(payTime(b))||(a.createdAt||0)-(b.createdAt||0))}
+function priorReceipts(d){if(!d.linkedId)return [];const c=d.createdAt||Date.now();const fam=bookingFamily(d.linkedId);return docs.filter(x=>x.type==="receipt"&&x.id!==d.id&&fam.has(x.linkedId)&&(x.createdAt||0)<c).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0))}
 function receivedBefore(d){return priorReceipts(d).reduce((a,x)=>a+num(x.amount),0)}
 function syncLinked(id){
   const L=docs.find(x=>x.id===id);if(!L)return;
@@ -1653,6 +1669,7 @@ function buildSheet(d){
       </div>`;
     body+=pkgTable(d,o,true);
     if(isRec)body+=paySummary(d,o);
+    else if(d.id){const fr=familyReceipts(d);if(fr.length)body+=payHistoryHTML(fr,optTotals(o,d.deposit).grand,null);}
     if(d.showBank&&!isRec)body+=`<table class="bank"><thead><tr><th colspan="2">BANK ACCOUNT DETAILS</th></tr></thead><tbody>
       <tr><td class="k">Bank Name</td><td class="v">${esc(settings.bankName)}</td></tr>
       <tr><td class="k">Account Name</td><td class="v">${esc(settings.accName)}</td></tr>
@@ -1674,8 +1691,20 @@ function recMeta(d){
   if(d.eventDate)r.push(["Event Date",fmtEvent(d.eventDate,d.eventTime)]);
   return r;
 }
+function payHistoryHTML(list,grand,thisId){
+  const paid=list.reduce((a,x)=>a+num(x.amount),0), bal=Math.max(0,grand-paid);
+  return `<table class="bank payhist"><thead><tr><th colspan="6">PAYMENT HISTORY</th></tr>
+    <tr class="ph-h"><td>No.</td><td>Date &amp; time</td><td>Receipt No.</td><td>Payment for</td><td>Method</td><td class="r">Amount (RM)</td></tr></thead><tbody>
+    ${list.map((x,i)=>`<tr class="${x.id===thisId?"this":""}"><td>${i+1}</td><td class="nw">${fmtShort(x.paidDate||x.date)}${x.paidTime?", "+fmtTime(x.paidTime):""}</td><td class="nw">${esc(x.number)}${x.id===thisId?' <span class="tag">this receipt</span>':""}</td><td>${esc(x.payFor||"Payment")}</td><td>${esc(x.payMethod||"")}</td><td class="r tnum">${money(x.amount)}</td></tr>`).join("")}
+    <tr class="ph-sum"><td colspan="5">Total paid</td><td class="r tnum">${money(paid)}</td></tr>
+    <tr class="ph-sum2"><td colspan="5">Booking total</td><td class="r tnum">${money(grand)}</td></tr>
+    <tr class="ph-bal"><td colspan="5">Balance due</td><td class="r tnum">${money(bal)}</td></tr>
+    ${bal<=0.004?`<tr class="fullpaid"><td colspan="6">FULLY PAID — THANK YOU</td></tr>`:""}</tbody></table>`;
+}
 function paySummary(d,o){
   const t=optTotals(o,d.deposit), prev=receivedBefore(d), amt=num(d.amount), bal=Math.max(0,t.grand-prev-amt);
+  if(prev>0){const list=priorReceipts(d).concat([d]);
+    return payHistoryHTML(list,t.grand,d.id)+`<div class="words">This receipt — Ringgit Malaysia: ${esc(amountWords(amt))}</div>`;}
   return `<table class="bank paysum"><thead><tr><th colspan="2">PAYMENT RECEIVED</th></tr></thead><tbody>
     <tr><td class="k">Booking total (RM)</td><td class="v tnum">${money(t.grand)}</td></tr>
     ${priorReceipts(d).map(x=>`<tr><td class="k">Paid earlier: ${esc(x.payFor||"Payment")} — ${esc(x.number)}${x.paidDate||x.date?", "+fmtShort(x.paidDate||x.date):""}</td><td class="v tnum">${money(x.amount)}</td></tr>`).join("")}
