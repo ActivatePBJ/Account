@@ -129,7 +129,11 @@
   .opt-h{display:flex;gap:8px;align-items:center;padding:10px;border-bottom:1px solid var(--line)}
   .opt-h input{font-weight:700;letter-spacing:.02em;text-transform:uppercase;font-size:13px}
   .opt-b{padding:10px}
-  .items-head,.item{display:grid;grid-template-columns:minmax(0,1fr) 92px 112px 92px 30px;gap:8px;align-items:start}
+  .items-head,.item{display:grid;grid-template-columns:minmax(0,1fr) 72px 88px 72px 86px 26px;gap:8px;align-items:start}
+  .item .dsc input{text-align:right}
+  .item .lt .was{display:block;font-size:10.5px;font-weight:500;color:var(--ink-faint);text-decoration:line-through}
+  .pkg tr.idisc td{padding-top:0!important;font-size:.92em;color:#b42318}
+  .pkg tr.idisc td.it{padding-left:18px}
   .items-head{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);padding:0 2px 6px}
   .items-head .r{text-align:right}
   .item{padding:8px 0;border-top:1px dashed var(--line)}
@@ -146,9 +150,10 @@
   .opt-foot .tot{margin-left:auto;font-weight:700;font-size:13px}
   @media (max-width:560px){
     .items-head{display:none}
-    .item{grid-template-columns:1fr 1fr 30px}
+    .item{grid-template-columns:1fr 1fr 1fr 30px}
     .item .stack.main{grid-column:1 / -1}
-    .item .lt{grid-column:1 / 3;text-align:left;padding-top:0}
+    .item .icon-btn{grid-column:4;grid-row:2}
+    .item .lt{grid-column:1 / -1;text-align:right;padding-top:0}
   }
 
   .dep-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -875,9 +880,9 @@
               <div class="field"><label for="fNumber" id="lblNo">Quotation No.</label><input type="text" id="fNumber" autocomplete="off"></div>
               <div class="field"><label for="fDate">Date</label><input type="date" id="fDate"></div>
               <div class="field" id="validField"><label for="fValid">Valid until</label><input type="date" id="fValid"></div>
-              <div class="field" id="payMethodField"><label for="fPayMethod">Payment method</label><select id="fPayMethod"><option value="Bank Transfer">Bank Transfer</option><option value="DuitNow QR">DuitNow QR</option><option value="Cash">Cash</option><option value="E-Wallet">E-Wallet</option><option value="Credit/Debit Card">Credit/Debit Card</option></select></div>
+              <div class="field" id="payMethodField"><label for="fPayMethod">Payment method</label><select id="fPayMethod"><option value="Bank Transfer">Bank Transfer</option><option value="DuitNow QR">DuitNow QR</option></select></div>
             </div>
-            <datalist id="payMethods"><option value="Bank Transfer"></option><option value="DuitNow QR"></option><option value="Cash"></option><option value="E-Wallet"></option><option value="Credit/Debit Card"></option></datalist>
+            <datalist id="payMethods"><option value="Bank Transfer"></option><option value="DuitNow QR"></option></datalist>
             <div class="row three">
               <div class="field"><label for="fEventDate">Event date</label><input type="date" id="fEventDate"></div>
               <div class="field"><label for="fEventTime">Start time</label><input type="time" id="fEventTime"></div>
@@ -1575,8 +1580,12 @@ function blankDoc(type){
     createdAt:Date.now(), updatedAt:Date.now()
   });
 }
+function itemGross(it){return num(it.unit)*num(it.qty)}
+function itemDisc(it){const g=itemGross(it);return Math.max(0,Math.min(num(it.discPct)>0?g*num(it.discPct)/100:num(it.disc),g))}
+function lineTotal(it){return itemGross(it)-itemDisc(it)}
+function discLabel(it){return num(it.discPct)>0?num(it.discPct)+"%":""}
 function optTotals(o,dep){
-  let sub=0;(o.items||[]).forEach(it=>{sub+=num(it.unit)*num(it.qty)});
+  let sub=0;(o.items||[]).forEach(it=>{sub+=lineTotal(it)});
   const disc=Math.min(num(o.discPct)>0?sub*num(o.discPct)/100:num(o.discount),sub), grand=sub-disc, d=grand*num(dep)/100;
   return {sub,disc,grand,dep:d,bal:grand-d};
 }
@@ -1641,7 +1650,7 @@ function headHTML(){
 function itemRows(o){
   const rows=(o.items||[]).filter(it=>it.desc||it.detail||num(it.unit)||num(it.qty));
   if(!rows.length)return `<tr><td class="it ph">Item</td><td class="num ph">0.00</td><td class="num ph">0</td><td class="num ph">0.00</td></tr>`;
-  return rows.map(it=>`<tr><td class="it">${esc(it.desc)}${it.detail?"<br>"+esc(it.detail):""}</td><td class="num tnum">${money(it.unit)}</td><td class="num tnum">${esc(it.qtyLabel||String(num(it.qty)))}</td><td class="num tnum">${money(num(it.unit)*num(it.qty))}</td></tr>`).join("");
+  return rows.map(it=>`<tr><td class="it">${esc(it.desc)}${it.detail?"<br>"+esc(it.detail):""}</td><td class="num tnum">${money(it.unit)}</td><td class="num tnum">${esc(it.qtyLabel||String(num(it.qty)))}</td><td class="num tnum">${money(itemGross(it))}</td></tr>${itemDisc(it)>0?`<tr class="idisc"><td class="it">Less: discount${discLabel(it)?" ("+discLabel(it)+")":""}</td><td class="num"></td><td class="num"></td><td class="num tnum">-${money(itemDisc(it))}</td></tr>`:""}`).join("");
 }
 function pkgTable(d,o,isInv){
   const t=optTotals(o,d.deposit), dep=num(d.deposit);
@@ -1835,30 +1844,32 @@ function renderOptions(){
       <div class="opt-h"><input type="text" data-k="title" value="${esc(o.title)}" aria-label="Option title" placeholder="PACKAGE BREAKDOWN">
         ${!isInv&&current.options.length>1?`<button class="icon-btn" type="button" data-act="rmOpt" title="Remove this option" aria-label="Remove option">&times;</button>`:""}</div>
       <div class="opt-b">
-        <div class="items-head"><div>Item</div><div class="r">Unit (RM)</div><div class="r">Qty</div><div class="r">Total</div><div></div></div>
+        <div class="items-head"><div>Item</div><div class="r">Unit (RM)</div><div class="r">Qty</div><div class="r">Discount</div><div class="r">Total</div><div></div></div>
         ${o.items.map((it,ii)=>`<div class="item" data-i="${ii}">
           <div class="stack main"><input type="text" data-k="desc" value="${esc(it.desc)}" placeholder="Tickets - 90-minute session" aria-label="Item">
             <input type="text" class="sub" data-k="detail" value="${esc(it.detail)}" placeholder="2nd line, e.g. (30 pax, date and time TBC)" aria-label="Item detail"></div>
           <div class="stack"><input type="number" data-k="unit" value="${num(it.unit)}" min="0" step="0.01" aria-label="Unit price"></div>
           <div class="stack"><input type="number" data-k="qty" value="${num(it.qty)}" min="0" step="1" aria-label="Quantity">
             <input type="text" class="sub" data-k="qtyLabel" value="${esc(it.qtyLabel)}" placeholder="Shown as, e.g. 1 rm x 2 hr" aria-label="Quantity shown as"></div>
-          <div class="lt tnum" data-lt>${money(num(it.unit)*num(it.qty))}</div>
+          <div class="stack dsc"><input type="text" inputmode="decimal" data-k="disc" value="${num(it.discPct)>0?num(it.discPct)+"%":(num(it.disc)||"")}" placeholder="RM/%" aria-label="Item discount (RM, or type % e.g. 10%)" title="Discount for this item: type an amount in RM (e.g. 50) or a percent (e.g. 10%)"></div>
+          <div class="lt tnum" data-lt>${ltHTML(it)}</div>
           <button class="icon-btn" type="button" data-act="rmItem" title="Remove item" aria-label="Remove item">&times;</button>
         </div>`).join("")}
         <div class="opt-foot">
           <button class="btn sm" type="button" data-act="addItem">+ Item</button>
           <select data-act="preset" aria-label="Add from price list">${presetOptions()}</select>
           <select data-k="discPct" aria-label="Streak discount">${[0,10,15,20,25].map(v=>`<option value="${v}"${num(o.discPct)===v?" selected":""}>${v?"Streak "+v+"%":"No streak discount"}</option>`).join("")}</select>
-          <label class="disc">Discount RM <input type="number" data-k="discount" value="${num(o.discPct)>0?t.disc.toFixed(2):(num(o.discount)||"")}" min="0" step="0.01" placeholder="0.00"${num(o.discPct)>0?" disabled":""}></label>
+          ${num(o.discount)>0&&!(num(o.discPct)>0)?`<label class="disc" title="Older document: discount on the total. New discounts go on each item.">Total discount RM <input type="number" data-k="discount" value="${num(o.discPct)>0?t.disc.toFixed(2):(num(o.discount)||"")}" min="0" step="0.01" placeholder="0.00"></label>`:""}
           <span class="tot tnum" data-tot>Grand total RM ${money(t.grand)}</span>
         </div>
       </div></div>`;
   }).join("");
 }
+function ltHTML(it){return itemDisc(it)>0?`<span class="was">${money(itemGross(it))}</span>${money(lineTotal(it))}`:money(itemGross(it))}
 function refreshTotalsInPlace(){
   $$("#optionsBox .opt").forEach(el=>{
     const o=current.options[+el.dataset.o]; if(!o)return;
-    el.querySelectorAll(".item").forEach(r=>{const it=o.items[+r.dataset.i];if(it)r.querySelector("[data-lt]").textContent=money(num(it.unit)*num(it.qty))});
+    el.querySelectorAll(".item").forEach(r=>{const it=o.items[+r.dataset.i];if(it)r.querySelector("[data-lt]").innerHTML=ltHTML(it)});
     el.querySelector("[data-tot]").textContent="Grand total RM "+money(optTotals(o,current.deposit).grand);
     const di=el.querySelector('[data-k="discount"]');if(di&&num(o.discPct)>0)di.value=optTotals(o,current.deposit).disc.toFixed(2);
   });
@@ -2233,7 +2244,7 @@ function waText(d){
     if(d.eventDate)L.push("Event: "+fmtEvent(d.eventDate,d.eventTime));
     d.options.forEach(o=>{
       const t=optTotals(o,d.deposit);L.push("");L.push("*"+(o.title||"Package")+"*");
-      o.items.filter(it=>it.desc).forEach(it=>L.push("• "+it.desc+(it.detail?" "+it.detail:"")+": RM"+money(it.unit)+" × "+(it.qtyLabel||num(it.qty))+" = RM"+money(num(it.unit)*num(it.qty))));
+      o.items.filter(it=>it.desc).forEach(it=>L.push("• "+it.desc+(it.detail?" "+it.detail:"")+": RM"+money(it.unit)+" × "+(it.qtyLabel||num(it.qty))+" = RM"+money(itemGross(it))+(itemDisc(it)>0?" − discount"+(discLabel(it)?" "+discLabel(it):"")+" RM"+money(itemDisc(it))+" = RM"+money(lineTotal(it)):"")));
       if(t.disc>0)L.push((num(o.discPct)>0?"Streak discount "+num(o.discPct)+"%":"Discount")+": -RM"+money(t.disc));
       L.push("Grand total: *RM"+money(t.grand)+"*");
       if(num(d.deposit)>0)L.push((num(d.deposit)>=100?"Full payment":"Deposit ("+num(d.deposit)+"%)")+": RM"+money(t.dep));
@@ -2259,7 +2270,7 @@ function einvText(d){
     "BUYER","Name: "+(d.bill.company||d.bill.name||"[ask client]"),"TIN: "+need(d.bill.tin),"Registration / ID no.: "+need(d.bill.idNo),"SST no.: NA","Address: "+need(d.bill.address),"Contact: "+([d.bill.phone,d.bill.email].filter(Boolean).join(" · ")||"[ask client]"),"",
     "DOCUMENT","Type: Invoice","Our reference: "+d.number+(d.linkedNo?" (for "+d.linkedNo+")":""),"Date: "+fmtLong(d.date),"Currency: MYR","","ITEMS"];
   if(isRec){L.push("1. "+(d.payFor||"Payment")+(d.linkedNo?" — "+d.linkedNo:"")+" | Qty 1 | RM"+money(d.amount));L.push("","Tax: Not applicable (not SST-registered)","Total payable: RM"+money(d.amount));}
-  else{o.items.filter(it=>it.desc).forEach((it,i)=>L.push((i+1)+". "+it.desc+(it.detail?" "+it.detail:"")+" | Qty "+num(it.qty)+" | Unit RM"+money(it.unit)+" | RM"+money(num(it.unit)*num(it.qty))));
+  else{o.items.filter(it=>it.desc).forEach((it,i)=>L.push((i+1)+". "+it.desc+(it.detail?" "+it.detail:"")+" | Qty "+num(it.qty)+" | Unit RM"+money(it.unit)+(itemDisc(it)>0?" | Disc RM"+money(itemDisc(it)):"")+" | RM"+money(lineTotal(it))));
     if(t.disc>0)L.push("Discount: RM"+money(t.disc));
     L.push("","Total excluding tax: RM"+money(t.grand),"Tax: Not applicable (not SST-registered)","Total payable: RM"+money(t.grand));}
   return L.join("\n");
@@ -2617,7 +2628,7 @@ function dashIn(dt){const f=$("#dFrom").value||"0000-01-01",t=$("#dTo").value||"
 function readItems(items){
   const r={mins:0,pax:0,tickV:0,tickDesc:"",family:0,famV:0,lounge:null,buyout:null,extPax:0,extV:0,nonPlay:0,nonPlayV:0};
   (items||[]).forEach(it=>{
-    const d=String(it.desc||""),q=num(it.qty),v=num(it.unit)*q;
+    const d=String(it.desc||""),q=num(it.qty),v=lineTotal(it);
     if(/family pack/i.test(d)){r.family+=q;r.famV+=v}
     else if(/buy-?out|private event/i.test(d)){r.buyout={h:(r.buyout?r.buyout.h:0)+q,v:(r.buyout?r.buyout.v:0)+v}}
     else if(/lounge/i.test(d)){const m=d.match(/(\d+(?:\.\d+)?)\s*hr/i),h=m?+m[1]:q;r.lounge={h:(r.lounge?r.lounge.h:0)+h,rh:(r.lounge?r.lounge.rh:0)+q,v:(r.lounge?r.lounge.v:0)+v}}
@@ -2961,7 +2972,9 @@ function init(){
     const k=e.target.dataset.k;if(!k)return;
     const oEl=e.target.closest(".opt"), o=current.options[+oEl.dataset.o];
     const iEl=e.target.closest(".item");
-    if(iEl){const it=o.items[+iEl.dataset.i];it[k]=(k==="unit"||k==="qty")?num(e.target.value):e.target.value;}
+    if(iEl){const it=o.items[+iEl.dataset.i];
+      if(k==="disc"){const v=String(e.target.value).trim();if(/%$/.test(v)){it.discPct=Math.max(0,Math.min(100,num(v.replace(/%/g,""))));it.disc=0}else{it.disc=Math.max(0,num(v));it.discPct=0}}
+      else it[k]=(k==="unit"||k==="qty")?num(e.target.value):e.target.value;}
     else if(k==="title")o.title=e.target.value;
     else if(k==="discount")o.discount=num(e.target.value);
     else if(k==="discPct"){o.discPct=num(e.target.value);renderOptions();changed();return}
