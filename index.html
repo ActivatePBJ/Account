@@ -167,6 +167,9 @@
   .badge.paid,.badge.accepted,.badge.received{background:var(--green-tint);color:var(--green)}
   .badge.unpaid,.badge.pending{background:var(--amber-tint);color:var(--amber)}
   .badge.deposit{background:var(--accent-soft);color:var(--accent)}
+  .badge.over{background:var(--danger-tint);color:var(--danger)}
+  .ovp-note{margin:4px 0 12px;padding:10px 12px;border:1px solid var(--danger);border-radius:10px;background:var(--danger-tint);color:var(--ink);font-size:13px;line-height:1.45}
+  .ovp-note b.big{color:var(--danger);font-size:15px}
   .badge.declined,.badge.expired{background:var(--surface-2);color:var(--ink-faint);border:1px solid var(--line)}
 
   .actionbar{position:sticky;top:10px;z-index:5;display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px}
@@ -411,6 +414,8 @@
   table.payhist tr.ph-sum td:first-child,table.payhist tr.ph-sum2 td:first-child,table.payhist tr.ph-bal td:first-child{text-align:right}
   table.payhist tr.ph-bal td{font-weight:800;font-size:12px}
   table.payhist tr.fullpaid td{background:#d9ead3;color:#1e5631;font-weight:700;text-align:center;letter-spacing:.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.payhist tr.overpaid td,table.paysum tr.overpaid td{background:#fde2cc;color:#9a3412;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.payhist tr.overpaid.msg td,table.paysum tr.overpaid.msg td{text-align:center;letter-spacing:.5px}
   table.paysum td.k{width:auto}
   table.paysum td.v{text-align:right;width:30%;font-family:Arial,Helvetica,sans-serif}
   table.paysum tr.recv td{background:#d9ead3;color:#1e5631;font-weight:700}
@@ -711,6 +716,7 @@
   .bk-money .bal{font-weight:800}
   .bk-money .bal.zero{color:var(--green)}
   .bk-money .bal.due{color:var(--amber)}
+  .bk-money .bal.over{color:var(--danger)}
 
   /* ---------- link old documents into a booking ---------- */
   .lk-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 14px;margin-bottom:10px;border:1px solid var(--accent);border-radius:var(--radius-sm);background:var(--accent-soft);font-size:13.5px}
@@ -976,6 +982,7 @@
           <div class="card-h"><h3 id="pkgTitle">Packages</h3><div class="right"><button class="btn sm" type="button" id="addOptBtn">+ Add option</button></div></div>
           <div class="card-b">
             <div id="optionsBox"></div>
+            <div id="ovpNote" class="ovp-note" hidden></div>
             <div class="field" style="margin-top:4px">
               <label for="fDeposit">Deposit</label>
               <div class="dep-row">
@@ -1740,25 +1747,26 @@ function recMeta(d){
   return r;
 }
 function payHistoryHTML(list,grand,thisId){
-  const paid=list.reduce((a,x)=>a+num(x.amount),0), bal=Math.max(0,grand-paid);
+  const paid=list.reduce((a,x)=>a+num(x.amount),0), bal=Math.max(0,grand-paid), over=paid-grand>0.004?paid-grand:0;
   return `<table class="bank payhist"><thead><tr><th colspan="6">PAYMENT HISTORY</th></tr>
     <tr class="ph-h"><td>No.</td><td>Date &amp; time</td><td>Receipt No.</td><td>Payment for</td><td>Method</td><td class="r">Amount (RM)</td></tr></thead><tbody>
     ${list.map((x,i)=>`<tr class="${x.id===thisId?"this":""}"><td>${i+1}</td><td class="nw">${fmtShort(x.paidDate||x.date)}${x.paidTime?", "+fmtTime(x.paidTime):""}</td><td class="nw">${esc(x.number)}${x.id===thisId?' <span class="tag">this receipt</span>':""}</td><td>${esc(x.payFor||"Payment")}</td><td>${esc(x.payMethod||"")}</td><td class="r tnum">${money(x.amount)}</td></tr>`).join("")}
     <tr class="ph-sum"><td colspan="5">Total paid</td><td class="r tnum">${money(paid)}</td></tr>
     <tr class="ph-sum2"><td colspan="5">Booking total</td><td class="r tnum">${money(grand)}</td></tr>
-    <tr class="ph-bal"><td colspan="5">Balance due</td><td class="r tnum">${money(bal)}</td></tr>
-    ${bal<=0.004?`<tr class="fullpaid"><td colspan="6">FULLY PAID — THANK YOU</td></tr>`:""}</tbody></table>`;
+    ${over?`<tr class="ph-bal overpaid"><td colspan="5">Overpaid</td><td class="r tnum">${money(over)}</td></tr>
+    <tr class="overpaid msg"><td colspan="6">OVERPAID BY RM ${money(over)} — PAID RM ${money(paid)}, FINAL TOTAL RM ${money(grand)}</td></tr>`:`<tr class="ph-bal"><td colspan="5">Balance due</td><td class="r tnum">${money(bal)}</td></tr>
+    ${bal<=0.004?`<tr class="fullpaid"><td colspan="6">FULLY PAID — THANK YOU</td></tr>`:""}`}</tbody></table>`;
 }
 function paySummary(d,o){
-  const t=optTotals(o,d.deposit), prev=receivedBefore(d), amt=num(d.amount), bal=Math.max(0,t.grand-prev-amt);
+  const t=optTotals(o,d.deposit), prev=receivedBefore(d), amt=num(d.amount), bal=Math.max(0,t.grand-prev-amt), over=prev+amt-t.grand>0.004?prev+amt-t.grand:0;
   if(prev>0){const list=priorReceipts(d).concat([d]);
     return payHistoryHTML(list,t.grand,d.id)+`<div class="words">This receipt — Ringgit Malaysia: ${esc(amountWords(amt))}</div>`;}
   return `<table class="bank paysum"><thead><tr><th colspan="2">PAYMENT RECEIVED</th></tr></thead><tbody>
     <tr><td class="k">Booking total (RM)</td><td class="v tnum">${money(t.grand)}</td></tr>
     ${priorReceipts(d).map(x=>`<tr><td class="k">Paid earlier: ${esc(x.payFor||"Payment")} — ${esc(x.number)}${x.paidDate||x.date?", "+fmtShort(x.paidDate||x.date):""}</td><td class="v tnum">${money(x.amount)}</td></tr>`).join("")}
     <tr class="recv"><td class="k">Amount received (RM)${d.paidDate?` <span class="nw">@ ${fmtShort(d.paidDate)}${d.paidTime?", "+fmtTime(d.paidTime):""}</span>`:""}</td><td class="v tnum">${money(amt)}</td></tr>
-    <tr class="baldue"><td class="k">Balance due (RM)</td><td class="v tnum">${money(bal)}</td></tr>
-    ${bal<=0.004?`<tr class="fullpaid"><td colspan="2">FULLY PAID — THANK YOU</td></tr>`:""}</tbody></table>
+    ${over?`<tr class="overpaid"><td class="k">Overpaid (RM)</td><td class="v tnum">${money(over)}</td></tr><tr class="overpaid msg"><td colspan="2">OVERPAID BY RM ${money(over)}</td></tr>`:`<tr class="baldue"><td class="k">Balance due (RM)</td><td class="v tnum">${money(bal)}</td></tr>
+    ${bal<=0.004?`<tr class="fullpaid"><td colspan="2">FULLY PAID — THANK YOU</td></tr>`:""}`}</tbody></table>
     <div class="words">Ringgit Malaysia: ${esc(amountWords(amt))}</div>`;
 }
 function einvHTML(d){
@@ -1821,8 +1829,8 @@ function fillForm(){
 function recCalc(){const t=optTotals(current.options[0],current.deposit);return {t,prev:receivedBefore(current)}}
 function updateRecHint(){
   if(!current||current.type!=="receipt")return;
-  const {t,prev}=recCalc(), bal=Math.max(0,t.grand-prev-num(current.amount));
-  $("#recHint").textContent="Booking total RM"+money(t.grand)+(prev>0?" · received before RM"+money(prev):"")+" · balance after this receipt RM"+money(bal);
+  const {t,prev}=recCalc(), bal=Math.max(0,t.grand-prev-num(current.amount)), ov=prev+num(current.amount)-t.grand;
+  $("#recHint").textContent="Booking total RM"+money(t.grand)+(prev>0?" · received before RM"+money(prev):"")+(ov>0.004?" · ⚠ OVERPAID RM"+money(ov):" · balance after this receipt RM"+money(bal));
 }
 function setRecAmount(kind){
   const {t,prev}=recCalc(), dep=num(current.deposit);
@@ -1860,13 +1868,25 @@ function renderOptions(){
           <select data-act="preset" aria-label="Add from price list">${presetOptions()}</select>
           <select data-k="discPct" aria-label="Streak discount">${[0,10,15,20,25].map(v=>`<option value="${v}"${num(o.discPct)===v?" selected":""}>${v?"Streak "+v+"%":"No streak discount"}</option>`).join("")}</select>
           ${num(o.discount)>0&&!(num(o.discPct)>0)?`<label class="disc" title="Older document: discount on the total. New discounts go on each item.">Total discount RM <input type="number" data-k="discount" value="${num(o.discPct)>0?t.disc.toFixed(2):(num(o.discount)||"")}" min="0" step="0.01" placeholder="0.00"></label>`:""}
-          <span class="tot tnum" data-tot>Grand total RM ${money(t.grand)}</span>
+          <span class="tot tnum" data-tot>Grand total RM ${money(t.grand)}</span>${(setTimeout(ovpUpd,0),"")}
         </div>
       </div></div>`;
   }).join("");
 }
 function ltHTML(it){return itemDisc(it)>0?`<span class="was">${money(itemGross(it))}</span>${money(lineTotal(it))}`:money(itemGross(it))}
+function overpaidInfo(d){
+  if(!d||!d.id||d.type==="quotation")return null;
+  const list=d.type==="receipt"?priorReceipts(d).concat([d]):familyReceipts(d);if(!list.length)return null;
+  const paid=list.reduce((a,x)=>a+num(x.amount),0), grand=optTotals(d.options[0]||{items:[]},d.deposit).grand, over=paid-grand;
+  return over>0.004?{paid,grand,over,n:list.length}:null;
+}
+function ovpUpd(){
+  const el=$("#ovpNote");if(!el)return;const o=current&&current.type==="invoice"?overpaidInfo(current):null;
+  el.hidden=!o;if(!o)return;
+  el.innerHTML=`⚠ <b class="big">Overpaid RM ${money(o.over)}</b><br>Customer paid RM ${money(o.paid)} (${o.n} receipt${o.n>1?"s":""}) · new total RM ${money(o.grand)}.<br>The invoice PDF will show "Overpaid". Agree with the manager whether to refund it or keep it as credit.`;
+}
 function refreshTotalsInPlace(){
+  setTimeout(ovpUpd,0);
   $$("#optionsBox .opt").forEach(el=>{
     const o=current.options[+el.dataset.o]; if(!o)return;
     el.querySelectorAll(".item").forEach(r=>{const it=o.items[+r.dataset.i];if(it)r.querySelector("[data-lt]").innerHTML=ltHTML(it)});
@@ -2233,7 +2253,8 @@ function waText(d){
     L.push((d.payFor||"Payment")+": *RM"+money(d.amount)+"*"+(d.payMethod?" via "+d.payMethod:""));
     if(d.paidDate)L.push("Received on: "+fmtEvent(d.paidDate,d.paidTime));
     if(d.eventDate)L.push("Event: "+fmtEvent(d.eventDate,d.eventTime));
-    L.push(bal>0?"Balance due: RM"+money(bal)+" (payable on the event day before gameplay)":"Your booking is fully paid.");
+    const ovR=prev+num(d.amount)-t.grand;
+    L.push(ovR>0.004?"Overpaid: RM"+money(ovR)+" — our team will contact you about this amount.":bal>0?"Balance due: RM"+money(bal)+" (payable on the event day before gameplay)":"Your booking is fully paid.");
     L.push("");L.push("Official receipt attached.");
     L.push("");L.push("Thank you!");L.push(d.issName?d.issName+" — Activate PBJ":"Activate PBJ");
     return L.join("\n");
@@ -2258,7 +2279,7 @@ function waText(d){
     L.push("Total: *RM"+money(t.grand)+"*");
     if(d.status==="deposit")L.push("Deposit received: RM"+money(t.dep)+"\nBalance due: *RM"+money(t.bal)+"*");
     else if(d.status==="unpaid"&&num(d.deposit)>0&&num(d.deposit)<100)L.push("Deposit to confirm ("+num(d.deposit)+"%): *RM"+money(t.dep)+"*");
-    else if(d.status==="paid")L.push("Status: Paid in full. Thank you!");
+    else if(d.status==="paid"){const ov=overpaidInfo(d);if(ov)L.push("Paid: RM"+money(ov.paid)+"\nOverpaid: *RM"+money(ov.over)+"* — our team will contact you about this amount.");else L.push("Status: Paid in full. Thank you!");}
     if(d.showBank&&d.status!=="paid"){L.push("");L.push("Bank transfer details:");L.push(settings.bankName);L.push("Account name: "+settings.accName);L.push("Account no.: "+settings.accNo);L.push("Please send us the receipt once transferred.");}
   }
   L.push("");L.push("Thank you!");L.push(d.issName?d.issName+" — Activate PBJ":"Activate PBJ");
@@ -3452,16 +3473,17 @@ function bookingGroups(){
     let total=optTotals(o,totDoc.deposit).grand, paid=rc.reduce((t,x)=>t+num(x.amount),0);
     if(iv&&!rc.length&&iv.status==="paid")paid=total;
     if(iv&&!rc.length&&iv.status==="deposit")paid=optTotals(o,iv.deposit).dep;
-    const bal=Math.max(0,total-paid), last=list.reduce((m,d)=>Math.max(m,d.updatedAt||d.createdAt||0),0);
+    const bal=Math.max(0,total-paid), over=paid-total>0.004?paid-total:0, last=list.reduce((m,d)=>Math.max(m,d.updatedAt||d.createdAt||0),0);
     const latestDate=list.map(d=>d.date||"").sort().pop();
     let st,stc;
-    if(paid>0&&bal<=0.004){st="Fully paid";stc="paid"}
+    if(over){st="Overpaid";stc="over"}
+    else if(paid>0&&bal<=0.004){st="Fully paid";stc="paid"}
     else if(paid>0){st="Deposit paid";stc="deposit"}
     else if(iv){st="Invoiced, unpaid";stc="unpaid"}
     else if(q){const es=effStatus(q);st=es==="accepted"?"Confirmed":es==="declined"?"Declined":es==="expired"?"Expired":"Quoted";stc=es==="pending"?"pending":es}
     else {st="Receipt";stc="received"}
     const multiQ=!iv&&q&&q.options.length>1;
-    return {list,q,qs,iv,inv,rc,main,total,paid,bal,st,stc,last,latestDate,multiQ,rollerId:list.map(d=>d.rollerId).find(Boolean)||""};
+    return {list,q,qs,iv,inv,rc,main,total,paid,bal,over,st,stc,last,latestDate,multiQ,rollerId:list.map(d=>d.rollerId).find(Boolean)||""};
   }).sort((a,b)=>(b.latestDate||"").localeCompare(a.latestDate||"")||b.last-a.last);
 }
 function renderGroupedHistory(){
@@ -3474,7 +3496,8 @@ function renderGroupedHistory(){
     if(s&&!g.list.some(d=>(d.number+" "+d.bill.name+" "+d.bill.company+" "+d.bill.email+" "+d.bill.phone+" "+(d.rollerId||"")).toLowerCase().includes(s)))return false;
     return true;});
   if(!gs.length){body.innerHTML=`<div class="empty-state"><div class="big">Nothing matches</div><div>Try another search or month.</div></div>`;return}
-  const sugN=docs.filter(lkUnlinked).filter(d=>lkSuggestion(d)).length, loneN=docs.filter(lkUnlinked).length;
+  const loneDocs=bookingGroups().filter(g=>g.list.length===1&&(g.list[0].type==="receipt"||g.list[0].type==="invoice")&&lkUnlinked(g.list[0])).map(g=>g.list[0]).filter(d=>lkCandidates(d).length);
+  const sugN=loneDocs.filter(d=>lkSuggestion(d)).length, loneN=loneDocs.length;
   const lkBar=loneN?`<div class="lk-bar"><span class="t">🔗 <b>${loneN}</b> older receipt/invoice${loneN>1?"s are":" is"} not linked to a booking${sugN?" — <b>"+sugN+"</b> have a clear match":""}. Link them so each booking shows on one row.</span>${sugN?`<button class="btn sm primary" type="button" id="lkAll">Link ${sugN} suggested</button>`:""}</div>`:"";
   const a=(d,txt)=>`<a data-od="${d.id}" title="Open ${esc(d.number)}">${esc(txt||d.number)}</a>`;
   body.innerHTML=lkBar+`<div class="table-wrap"><table class="hist grp"><thead><tr><th>Customer</th><th>Event</th><th>Quotation</th><th>Invoice</th><th>Receipts</th><th class="r">Total · Paid · Balance</th><th>Status</th><th class="r">Actions</th></tr></thead><tbody>${
@@ -3495,7 +3518,7 @@ function renderGroupedHistory(){
         <td><div class="doc-no" style="color:var(--ink)">${esc(custName(m))}</div>${c.company&&c.name?`<div class="muted">${esc(c.name)}</div>`:""}${g.rollerId?`<div class="muted">Roller ${esc(g.rollerId)}</div>`:""}</td>
         <td class="muted">${ev?fmtShort(ev.eventDate)+(ev.eventTime?"<br>"+fmtTime(ev.eventTime):""):"TBC"}</td>
         <td>${qCell}</td><td>${iCell}</td><td>${rCell}</td>
-        <td class="r tnum bk-money"><div>RM ${money(g.total)}${g.multiQ?' <span class="muted">(option 1)</span>':""}</div><div class="muted">paid RM ${money(g.paid)}</div><div class="bal ${g.bal<=0.004?"zero":"due"}">${g.bal<=0.004?"Nothing due":"due RM "+money(g.bal)}</div></td>
+        <td class="r tnum bk-money"><div>RM ${money(g.total)}${g.multiQ?' <span class="muted">(option 1)</span>':""}</div><div class="muted">paid RM ${money(g.paid)}</div><div class="bal ${g.over?"over":g.bal<=0.004?"zero":"due"}">${g.over?"Overpaid RM "+money(g.over):g.bal<=0.004?"Nothing due":"due RM "+money(g.bal)}</div></td>
         <td><span class="badge ${g.stc}">${esc(g.st)}</span>${(()=>{const sd=g.iv||g.q;if(!sd)return "";const opts=sd.type==="invoice"?INV_STATUS:QUO_STATUS;
           return `<div style="margin-top:6px"><select class="status-sel" data-status="${sd.id}" aria-label="Change ${sd.type} status" title="${sd.type==="invoice"?"Invoice":"Quotation"} status">${opts.map(x=>`<option value="${x[0]}"${x[0]===sd.status?" selected":""}>${x[1]}</option>`).join("")}</select></div>`})()}</td>
         <td><div class="acts">${acts.join("")}</div></td></tr>`;
@@ -3582,7 +3605,7 @@ async function lkGo(){
   catch(e){toast("Not linked — "+dbErr(e))}finally{b.disabled=false;b.textContent="Link"}
 }
 async function lkAutoAll(){
-  const pairs=docs.filter(lkUnlinked).map(d=>({d,s:lkSuggestion(d)})).filter(x=>x.s);
+  const pairs=bookingGroups().filter(g=>g.list.length===1&&lkUnlinked(g.list[0])).map(g=>g.list[0]).map(d=>({d,s:lkSuggestion(d)})).filter(x=>x.s);
   if(!pairs.length){toast("Nothing to link automatically");return}
   const html="Link these <b>"+pairs.length+"</b> older document"+(pairs.length>1?"s":"")+" to their booking?<div style=\"margin-top:12px;font-size:14px\">"+pairs.map(x=>"• <b>"+esc(x.d.number)+"</b> → "+esc(x.s.t.number)+" <span class=\"muted\">("+esc(x.s.why.join(", "))+")</span>").join("<br>")+"</div>";
   if(!(await askConfirm(html,"Link all")))return;
