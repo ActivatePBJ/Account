@@ -732,6 +732,17 @@
   .lk-item .why{font-size:12px;color:var(--ink-faint)}
   .lk-item .score{margin-left:auto;font-size:11px;font-weight:800;color:var(--green);white-space:nowrap}
 
+  /* ---------- refunds (overpaid bookings) ---------- */
+  #refundModal .modal{max-width:560px;--hc:var(--danger);border-color:var(--danger)}
+  #refundModal .hud-tag,#refundModal .m-h h3{color:var(--danger)}
+  .rf-sum{display:grid;grid-template-columns:1fr auto;gap:4px 14px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:10px;font-size:13.5px;margin-bottom:12px}
+  .rf-sum .v{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+  .rf-sum .over{color:var(--danger)}
+  .rf-err{color:var(--danger);font-size:12.5px;min-height:18px;margin-top:6px}
+  .bk-doc .rf-t{color:var(--danger);font-weight:700}
+  table.payhist tr.rf td{color:#b42318}
+  table.payhist tr.this.rf td{background:#fde2cc;color:#9a3412}
+
   /* ---------- sign-in gate ---------- */
   .gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--ground)}
   .gate-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 24px}
@@ -1315,6 +1326,26 @@
   </div>
 </div>
 
+<div class="modal-back" id="refundModal" role="dialog" aria-modal="true" aria-labelledby="rfTitle">
+  <div class="modal small">
+    <div class="m-h"><div><span class="hud-tag" id="rfTag"></span><h3 id="rfTitle">Record refund</h3></div></div>
+    <div class="m-b">
+      <div class="rf-sum" id="rfSum"></div>
+      <div class="row two">
+        <div class="field"><label for="rfAmt">Refund amount (RM)</label><input type="number" id="rfAmt" min="0" step="0.01"></div>
+        <div class="field"><label for="rfMethod">Refund method</label><select id="rfMethod"></select></div>
+      </div>
+      <div class="row two">
+        <div class="field"><label for="rfDate">Date refunded</label><input type="date" id="rfDate"></div>
+        <div class="field"><label for="rfTime">Time</label><input type="time" id="rfTime"></div>
+      </div>
+      <div class="field"><label for="rfReason">Reason (shows on the refund note)</label><input type="text" id="rfReason"></div>
+      <div class="rf-err" id="rfErr"></div>
+    </div>
+    <div class="m-f"><button class="btn" type="button" id="rfCancel">Cancel</button><button class="btn primary" type="button" id="rfGo">Draft refund note</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js"></script>
@@ -1562,7 +1593,7 @@ function parseNo(n){const m=String(n||"").match(/-(\d{1,6})-(\d{4})\s*$/);return
 function nextNumber(type,dateStr,excludeId){
   const y=yearOf(dateStr), prefix=prefixFor(type);
   let max=0;
-  docs.forEach(d=>{if(d.type!==type||d.id===excludeId)return;const p=parseNo(d.number);if(p&&p.year===y&&p.seq>max)max=p.seq;});
+  docs.forEach(d=>{if(d.type!==type||d.id===excludeId||(type==="receipt"&&d.refund))return;const p=parseNo(d.number);if(p&&p.year===y&&p.seq>max)max=p.seq;});
   const start=Number(settings.startYear)===y?Math.max(1,num(startFor(type))):1;
   return prefix+"-"+pad4(Math.max(max+1,start))+"-"+y;
 }
@@ -1681,7 +1712,7 @@ function pkgTable(d,o,isInv){
 }
 function billHTML(d,isInv){
   const b=d.bill, ph=t=>`<span class="ph">[${t}]</span>`, cl=v=>v?"v":"v ph-line";
-  return `<div class="blk bill"><div class="h"${isInv?' style="font-weight:700"':''}>${d.type==="receipt"?"RECEIVED FROM:":"BILL TO:"}</div>
+  return `<div class="blk bill"><div class="h"${isInv?' style="font-weight:700"':''}>${d.type==="receipt"?(d.refund?"REFUNDED TO:":"RECEIVED FROM:"):"BILL TO:"}</div>
     <div class="${cl(b.name)}">${b.name?esc(b.name):ph("Contact Name")}</div>
     <div class="${cl(b.company)}">${b.company?esc(b.company):ph(isInv?"Company / Organisation Name":"Company Name")}</div>
     ${b.address?`<div class="v" style="white-space:pre-line">${esc(b.address)}</div>`:""}
@@ -1716,7 +1747,7 @@ function buildSheet(d){
   }else{
     const o=d.options[0];
     const metaRows=isRec?recMeta(d):[["Invoice No.",esc(d.number)],...(d.rollerId?[["Booking ID",esc(d.rollerId)]]:[]),["Date",fmtLong(d.date)],["Event Date",d.eventDate?fmtEvent(d.eventDate,d.eventTime):"TBC"],["Payment Method",esc(d.payMethod||"")],["Payment status",statusLabel(d.status)]];
-    body+=`<h1 class="doc-title">${isRec?"Official Receipt":"Invoice"}</h1>
+    body+=`<h1 class="doc-title">${isRec?(d.refund?"Refund Note":"Official Receipt"):"Invoice"}</h1>
       <div class="two-col">
         <div class="blk issued"><div class="h">ISSUED BY:</div><div>${esc(settings.coName)}</div><div>${esc(settings.coAddr)}</div>
           ${settings.coEmail?`<div><a href="mailto:${esc(settings.coEmail)}">${esc(settings.coEmail)}</a></div>`:""}<div>${esc(settings.coPhone)}</div><div>${esc(settings.coReg)}</div>${settings.coTin?`<div>TIN: ${esc(settings.coTin)}</div>`:""}</div>
@@ -1739,9 +1770,10 @@ function buildSheet(d){
   return `<table class="page${isInv?" inv-doc":""}"><thead><tr><td>${headHTML()}</td></tr></thead><tfoot><tr><td><div class="pfoot"></div></td></tr></tfoot><tbody><tr><td class="${isInv?"inv-doc":""}">${body}</td></tr></tbody></table>`;
 }
 function recMeta(d){
-  const r=[["Receipt No.",esc(d.number)],...(d.rollerId?[["Booking ID",esc(d.rollerId)]]:[]),["Date",fmtLong(d.date)],["Payment For",esc(d.payFor||"Payment")]];
+  const r=[[d.refund?"Refund No.":"Receipt No.",esc(d.number)],...(d.rollerId?[["Booking ID",esc(d.rollerId)]]:[]),["Date",fmtLong(d.date)],...(d.refund?[]:[["Payment For",esc(d.payFor||"Payment")]])];
   if(d.linkedNo)r.push(["Reference",esc(d.linkedNo)]);
-  r.push(["Payment Method",esc(d.payMethod||"")]);
+  if(d.refund&&d.refundReason)r.push(["Reason",esc(d.refundReason)]);
+  r.push([d.refund?"Refund Method":"Payment Method",esc(d.payMethod||"")]);
   if(d.payRef)r.push(["Transaction Ref.",esc(d.payRef)]);
   if(d.eventDate)r.push(["Event Date",fmtEvent(d.eventDate,d.eventTime)]);
   return r;
@@ -1750,14 +1782,15 @@ function payHistoryHTML(list,grand,thisId){
   const paid=list.reduce((a,x)=>a+num(x.amount),0), bal=Math.max(0,grand-paid), over=paid-grand>0.004?paid-grand:0;
   return `<table class="bank payhist"><thead><tr><th colspan="6">PAYMENT HISTORY</th></tr>
     <tr class="ph-h"><td>No.</td><td>Date &amp; time</td><td>Receipt No.</td><td>Payment for</td><td>Method</td><td class="r">Amount (RM)</td></tr></thead><tbody>
-    ${list.map((x,i)=>`<tr class="${x.id===thisId?"this":""}"><td>${i+1}</td><td class="nw">${fmtShort(x.paidDate||x.date)}${x.paidTime?", "+fmtTime(x.paidTime):""}</td><td class="nw">${esc(x.number)}${x.id===thisId?' <span class="tag">this receipt</span>':""}</td><td>${esc(x.payFor||"Payment")}</td><td>${esc(x.payMethod||"")}</td><td class="r tnum">${money(x.amount)}</td></tr>`).join("")}
-    <tr class="ph-sum"><td colspan="5">Total paid</td><td class="r tnum">${money(paid)}</td></tr>
+    ${list.map((x,i)=>`<tr class="${x.id===thisId?"this":""}${x.refund?" rf":""}"><td>${i+1}</td><td class="nw">${fmtShort(x.paidDate||x.date)}${x.paidTime?", "+fmtTime(x.paidTime):""}</td><td class="nw">${esc(x.number)}${x.id===thisId?' <span class="tag">this '+(x.refund?'refund':'receipt')+'</span>':""}</td><td>${esc(x.payFor||"Payment")}</td><td>${esc(x.payMethod||"")}</td><td class="r tnum">${money(x.amount)}</td></tr>`).join("")}
+    <tr class="ph-sum"><td colspan="5">${list.some(x=>x.refund)?"Total paid (after refund)":"Total paid"}</td><td class="r tnum">${money(paid)}</td></tr>
     <tr class="ph-sum2"><td colspan="5">Booking total</td><td class="r tnum">${money(grand)}</td></tr>
     ${over?`<tr class="ph-bal overpaid"><td colspan="5">Overpaid</td><td class="r tnum">${money(over)}</td></tr>
     <tr class="overpaid msg"><td colspan="6">OVERPAID BY RM ${money(over)} — PAID RM ${money(paid)}, FINAL TOTAL RM ${money(grand)}</td></tr>`:`<tr class="ph-bal"><td colspan="5">Balance due</td><td class="r tnum">${money(bal)}</td></tr>
     ${bal<=0.004?`<tr class="fullpaid"><td colspan="6">FULLY PAID — THANK YOU</td></tr>`:""}`}</tbody></table>`;
 }
 function paySummary(d,o){
+  if(d.refund)return rfSummary(d,o);
   const t=optTotals(o,d.deposit), prev=receivedBefore(d), amt=num(d.amount), bal=Math.max(0,t.grand-prev-amt), over=prev+amt-t.grand>0.004?prev+amt-t.grand:0;
   if(prev>0){const list=priorReceipts(d).concat([d]);
     return payHistoryHTML(list,t.grand,d.id)+`<div class="words">This receipt — Ringgit Malaysia: ${esc(amountWords(amt))}</div>`;}
@@ -1883,7 +1916,7 @@ function overpaidInfo(d){
 function ovpUpd(){
   const el=$("#ovpNote");if(!el)return;const o=current&&current.type==="invoice"?overpaidInfo(current):null;
   el.hidden=!o;if(!o)return;
-  el.innerHTML=`⚠ <b class="big">Overpaid RM ${money(o.over)}</b><br>Customer paid RM ${money(o.paid)} (${o.n} receipt${o.n>1?"s":""}) · new total RM ${money(o.grand)}.<br>The invoice PDF will show "Overpaid". Agree with the manager whether to refund it or keep it as credit.`;
+  el.innerHTML=`⚠ <b class="big">Overpaid RM ${money(o.over)}</b><br>Customer paid RM ${money(o.paid)} (${o.n} receipt${o.n>1?"s":""}) · new total RM ${money(o.grand)}.<br>The invoice PDF will show "Overpaid". Agree with the manager whether to refund it or keep it as credit.<div style="margin-top:8px"><button class="btn sm primary" type="button" id="ovpRefund">Record refund RM ${money(o.over)}</button></div>`;
 }
 function refreshTotalsInPlace(){
   setTimeout(ovpUpd,0);
@@ -2023,7 +2056,7 @@ function runBuild(){
 /* =================== save / new / load =================== */
 async function saveCurrent(){
   if(saving||!sb)return false;
-  if(current.type==="receipt"&&num(current.amount)<=0){toast("Enter the amount received first");return false}
+  if(current.type==="receipt"&&(current.refund?num(current.amount)>=0:num(current.amount)<=0)){toast(current.refund?"Enter the refund amount first":"Enter the amount received first");return false}
   const isNew=!current._rev, auto=isNew&&!!current._autoNo;
   if(!auto){
     if(!String(current.number||"").trim()){toast("Add a document number first");return false}
@@ -2246,6 +2279,7 @@ function askPayAmount(s,t,got,dep){
 function waText(d){
   const isInv=d.type==="invoice", hi="Hi "+(d.bill.name?d.bill.name.split(" ")[0]:"there")+",";
   const L=[hi,""];
+  if(d.type==="receipt"&&d.refund)return rfWa(d);
   if(d.type==="receipt"){
     const t=optTotals(d.options[0],d.deposit),prev=receivedBefore(d),bal=Math.max(0,t.grand-prev-num(d.amount));
     L.push("We've received your payment — thank you!");
@@ -2289,8 +2323,8 @@ function einvText(d){
   const o=d.options[0],t=optTotals(o,d.deposit),isRec=d.type==="receipt",need=v=>v||"[ask client]",set=v=>v||"[add in Settings]";
   const L=["SUPPLIER","Name: "+settings.coName,"TIN: "+set(settings.coTin),"Registration no. (BRN): "+settings.coReg,"SST no.: NA","MSIC code: "+set(settings.coMsic),"Business activity: "+set(settings.coActivity),"Address: "+settings.coAddr,"Contact: "+[settings.coPhone,settings.coEmail].filter(Boolean).join(" · "),"",
     "BUYER","Name: "+(d.bill.company||d.bill.name||"[ask client]"),"TIN: "+need(d.bill.tin),"Registration / ID no.: "+need(d.bill.idNo),"SST no.: NA","Address: "+need(d.bill.address),"Contact: "+([d.bill.phone,d.bill.email].filter(Boolean).join(" · ")||"[ask client]"),"",
-    "DOCUMENT","Type: Invoice","Our reference: "+d.number+(d.linkedNo?" (for "+d.linkedNo+")":""),"Date: "+fmtLong(d.date),"Currency: MYR","","ITEMS"];
-  if(isRec){L.push("1. "+(d.payFor||"Payment")+(d.linkedNo?" — "+d.linkedNo:"")+" | Qty 1 | RM"+money(d.amount));L.push("","Tax: Not applicable (not SST-registered)","Total payable: RM"+money(d.amount));}
+    "DOCUMENT","Type: "+(d.refund?"Refund Note":"Invoice"),"Our reference: "+d.number+(d.linkedNo?" (for "+d.linkedNo+")":""),"Date: "+fmtLong(d.date),"Currency: MYR","","ITEMS"];
+  if(isRec){L.push("1. "+(d.payFor||"Payment")+(d.linkedNo?" — "+d.linkedNo:"")+" | Qty 1 | RM"+money(Math.abs(num(d.amount))));L.push("","Tax: Not applicable (not SST-registered)",(d.refund?"Total refunded: RM":"Total payable: RM")+money(Math.abs(num(d.amount))));}
   else{o.items.filter(it=>it.desc).forEach((it,i)=>L.push((i+1)+". "+it.desc+(it.detail?" "+it.detail:"")+" | Qty "+num(it.qty)+" | Unit RM"+money(it.unit)+(itemDisc(it)>0?" | Disc RM"+money(itemDisc(it)):"")+" | RM"+money(lineTotal(it))));
     if(t.disc>0)L.push("Discount: RM"+money(t.disc));
     L.push("","Total excluding tax: RM"+money(t.grand),"Tax: Not applicable (not SST-registered)","Total payable: RM"+money(t.grand));}
@@ -3508,12 +3542,13 @@ function renderGroupedHistory(){
       const lkCell=lone?`<button class="lk-btn" type="button" data-lk="${m.id}">Link…</button>${sug?`<div class="lk-sug">Looks like ${esc(sug.t.number)}</div>`:""}`:"";
       const qCell=g.qs.length?`<div class="bk-docs">${g.qs.map(q=>`<div class="bk-doc">${a(q)}<span class="muted">${fmtShort(q.date)}${q.options.length>1?" · "+q.options.length+" options":""}</span></div>`).join("")}</div>`:(m.type==="invoice"&&lone?lkCell:`<span class="bk-none">—</span>`);
       const iCell=g.inv.length?`<div class="bk-docs">${g.inv.map(i=>`<div class="bk-doc">${a(i)}<span class="muted">${fmtShort(i.date)}</span></div>`).join("")}</div>`:(m.type==="receipt"&&lone?lkCell:`<span class="bk-none">${g.q&&!["declined","expired"].includes(effStatus(g.q))?"Not yet":"—"}</span>`);
-      const rCell=g.rc.length?`<div class="bk-docs">${g.rc.map(r=>`<div class="bk-doc">${a(r)}<span class="muted">${esc(r.payFor||"Payment")} · RM ${money(r.amount)} · ${fmtShort(r.paidDate||r.date)}${r.payMethod?" · "+esc(r.payMethod):""}</span></div>`).join("")}</div>`:`<span class="bk-none">No payment yet</span>`;
+      const rCell=g.rc.length?`<div class="bk-docs">${g.rc.map(r=>`<div class="bk-doc">${a(r)}<span class="muted">${r.refund?'<span class="rf-t">Refund · −RM '+money(-num(r.amount))+'</span>':esc(r.payFor||"Payment")+" · RM "+money(r.amount)} · ${fmtShort(r.paidDate||r.date)}${r.payMethod?" · "+esc(r.payMethod):""}</span></div>`).join("")}</div>`:`<span class="bk-none">No payment yet</span>`;
       const ev=g.list.find(d=>d.eventDate);
       const acts=[];
       acts.push(`<button class="btn sm" type="button" data-h="pdf" data-id="${m.id}">PDF</button>`);
       if(g.q&&!g.iv&&!["declined","expired"].includes(effStatus(g.q)))acts.push(`<button class="btn sm" type="button" data-h="convert" data-id="${g.q.id}">To invoice</button>`);
       if(g.bal>0.004&&(g.iv||g.q))acts.push(`<button class="btn sm" type="button" data-h="pay" data-id="${(g.iv||g.q).id}">Receipt</button>`);
+      if(g.over&&g.iv)acts.push(`<button class="btn sm danger" type="button" data-rf="${g.iv.id}">Refund</button>`);
       return `<tr class="row-open" data-open="${m.id}" tabindex="0" title="Open ${esc(m.number)}">
         <td><div class="doc-no" style="color:var(--ink)">${esc(custName(m))}</div>${c.company&&c.name?`<div class="muted">${esc(c.name)}</div>`:""}${g.rollerId?`<div class="muted">Roller ${esc(g.rollerId)}</div>`:""}</td>
         <td class="muted">${ev?fmtShort(ev.eventDate)+(ev.eventTime?"<br>"+fmtTime(ev.eventTime):""):"TBC"}</td>
@@ -3619,6 +3654,95 @@ async function lkAutoAll(){
   $("#histBody").addEventListener("click",e=>{
     const l=e.target.closest("[data-lk]");if(l){e.preventDefault();e.stopPropagation();openLink(l.dataset.lk);return}
     const a=e.target.closest("#lkAll");if(a){e.preventDefault();e.stopPropagation();lkAutoAll()}
+  },true);
+})();
+
+/* =================== refunds for overpaid bookings =================== */
+function nextRefundNo(dateStr){
+  const y=yearOf(dateStr||today());let max=0;
+  docs.forEach(d=>{if(d.type!=="receipt"||!d.refund)return;const p=parseNo(d.number);if(p&&p.year===y&&p.seq>max)max=p.seq});
+  return "ACT-RFD-"+pad4(max+1)+"-"+y;
+}
+let rfSrc=null,rfInfo=null;
+async function openRefund(src){
+  let s=src;if(!s)return;
+  if(s===current&&(dirty||!current.id)){if(!(await saveCurrent()))return;s=current}
+  const o=overpaidInfo(s);
+  if(!o){toast("This booking is not overpaid — nothing to refund");return}
+  rfSrc=s;rfInfo=o;
+  $("#rfSum").innerHTML=`<div>Customer paid</div><div class="v">RM ${money(o.paid)}</div><div>Final total (${esc(s.number)})</div><div class="v">RM ${money(o.grand)}</div><div class="over">Overpaid</div><div class="v over">RM ${money(o.over)}</div>`;
+  $("#rfAmt").value=(Math.round(o.over*100)/100).toFixed(2);
+  $("#rfMethod").innerHTML=$("#fPayMethod").innerHTML;$("#rfMethod").value=s.payMethod||"Bank Transfer";
+  if(!$("#rfMethod").value)$("#rfMethod").selectedIndex=0;
+  $("#rfDate").value=today();$("#rfTime").value=nowHM();
+  $("#rfReason").value="Fewer pax on event day — final total RM "+money(o.grand);
+  $("#rfErr").textContent="";rfCheck();
+  const m=$("#refundModal");m.classList.remove("open");void m.offsetWidth;openModal("#refundModal");setTimeout(()=>hudTag($("#rfTag"),"A.C.T.I.V.E › REFUND"),40);
+  setTimeout(()=>$("#rfAmt").select(),80);
+}
+function rfCheck(){
+  const a=num($("#rfAmt").value),o=rfInfo,go=$("#rfGo");if(!o)return false;
+  let e="";
+  if(!(a>0))e="Enter the refund amount.";
+  else if(a>o.paid+0.004)e="That is more than the customer paid (RM "+money(o.paid)+").";
+  else if(a>o.over+0.004)e="Note: this is more than the overpaid amount (RM "+money(o.over)+"). The booking will show a balance due.";
+  $("#rfErr").textContent=e;const bad=!(a>0)||a>o.paid+0.004;go.disabled=bad;return !bad;
+}
+function rfGo(){
+  if(!rfCheck())return;
+  const s=rfSrc,a=Math.round(num($("#rfAmt").value)*100)/100;
+  const r=blankDoc("receipt"),o=clone(docOptions(s)[0]);o.title="PACKAGE BREAKDOWN";
+  if(s.type==="quotation"&&typeof toInvoiceItems==="function")toInvoiceItems(o);
+  const date=$("#rfDate").value||today();
+  Object.assign(r,{refund:true,_autoNo:false,number:nextRefundNo(date),date,rollerId:s.rollerId||"",pkg:s.pkg||"",mins:s.mins||"",bill:clone(s.bill),options:[o],deposit:s.deposit,
+    eventDate:s.eventDate,eventTime:s.eventTime,payMethod:$("#rfMethod").value,linkedId:s.id,linkedNo:s.number,linkedType:s.type,payFor:"Refund",amount:-a,
+    paidDate:date,paidTime:$("#rfTime").value||"",refundReason:$("#rfReason").value.trim()});
+  closeModal("#refundModal");
+  current=r;dirty=true;fillForm();renderPreview();setSaveStatus();switchTab("create");window.scrollTo({top:0});
+  toast("Refund note drafted: RM "+money(a)+" — check it, then press Save");
+}
+function rfSummary(d,o){
+  const list=priorReceipts(d).concat([d]),t=optTotals(o,d.deposit);
+  return payHistoryHTML(list,t.grand,d.id)+`<div class="words">Amount refunded — Ringgit Malaysia: ${esc(amountWords(Math.abs(num(d.amount))))}</div>`;
+}
+function rfWa(d){
+  const t=optTotals(d.options[0],d.deposit),prev=receivedBefore(d),net=prev+num(d.amount);
+  const L=["Hi "+(d.bill.name?d.bill.name.split(" ")[0]:"there")+",",""];
+  L.push("We have refunded *RM"+money(Math.abs(num(d.amount)))+"* to you"+(d.payMethod?" via "+d.payMethod:"")+".");
+  L.push("Refund no.: *"+d.number+"*"+(d.linkedNo?" (for "+d.linkedNo+")":""));if(d.rollerId)L.push("Booking ID: "+d.rollerId);
+  if(d.paidDate)L.push("Refunded on: "+fmtEvent(d.paidDate,d.paidTime));
+  if(d.refundReason)L.push("Reason: "+d.refundReason);
+  L.push("Final total: RM"+money(t.grand)+" · Total paid after refund: RM"+money(net));
+  L.push("");L.push("Refund note attached.");
+  L.push("");L.push("Thank you!");L.push(d.issName?d.issName+" — Activate PBJ":"Activate PBJ");
+  return L.join("\n");
+}
+function rfForm(){
+  const on=!!(current&&current.type==="receipt"&&current.refund);
+  const lab=(id,a,b)=>{const l=document.querySelector('label[for="'+id+'"]');if(l)l.textContent=on?a:b};
+  lab("fAmount","Amount refunded (RM)","Amount received (RM)");lab("fPaidDate","Date refunded","Date received");lab("fPaidTime","Time refunded","Time received");
+  const chips=document.querySelector('#recFields [data-amt]');if(chips)chips.parentElement.hidden=on;
+  if(!on)return;
+  $("#fAmount").value=Math.abs(num(current.amount))||"";
+  $("#lblNo").textContent="Refund No.";
+  const b=$("#curBadge");b.className="badge over";b.textContent=current.id?"Editing "+current.number:"New refund";
+  const li=$("#linkInfo");if(current.linkedNo){li.hidden=false;li.textContent="Refund for "+current.linkedNo+"."}
+}
+function rfHint(){
+  if(!current||current.type!=="receipt"||!current.refund)return;
+  const t=optTotals(current.options[0],current.deposit),prev=receivedBefore(current),a=Math.abs(num(current.amount)),net=prev-a,d=net-t.grand;
+  $("#recHint").textContent="Paid before RM"+money(prev)+" · refund RM"+money(a)+" · paid after refund RM"+money(net)+" · final total RM"+money(t.grand)+(Math.abs(d)<=0.004?" · ✓ settled":d>0?" · still overpaid RM"+money(d):" · ⚠ balance due RM"+money(-d));
+}
+(function(){
+  const _ff=fillForm;fillForm=function(){const r=_ff.apply(this,arguments);rfForm();rfHint();return r};
+  const _uh=updateRecHint;updateRecHint=function(){const r=_uh.apply(this,arguments);rfHint();return r};
+  $("#fAmount").addEventListener("input",e=>{if(current&&current.refund){current.amount=-Math.abs(num(e.target.value));rfHint();changed()}});
+  ["rfAmt"].forEach(i=>$("#"+i).addEventListener("input",rfCheck));
+  $("#rfGo").addEventListener("click",rfGo);
+  $("#rfCancel").addEventListener("click",()=>closeModal("#refundModal"));
+  document.addEventListener("click",e=>{
+    if(e.target.closest("#ovpRefund")){e.preventDefault();openRefund(current);return}
+    const b=e.target.closest("[data-rf]");if(b){e.preventDefault();e.stopPropagation();const d=docs.find(x=>x.id===b.dataset.rf);if(d)openRefund(d)}
   },true);
 })();
 
