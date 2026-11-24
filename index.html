@@ -1785,7 +1785,7 @@ function payHistoryHTML(list,grand,thisId){
   const paid=list.reduce((a,x)=>a+num(x.amount),0), bal=Math.max(0,grand-paid), over=paid-grand>0.004?paid-grand:0;
   return `<table class="bank payhist"><thead><tr><th colspan="6">PAYMENT HISTORY</th></tr>
     <tr class="ph-h"><td>No.</td><td>Date &amp; time</td><td>Receipt No.</td><td>Payment for</td><td>Method</td><td class="r">Amount (RM)</td></tr></thead><tbody>
-    ${list.map((x,i)=>`<tr class="${x.id===thisId?"this":""}${x.refund?" rf":""}"><td>${i+1}</td><td class="nw">${fmtShort(x.paidDate||x.date)}${x.paidTime?", "+fmtTime(x.paidTime):""}</td><td class="nw">${esc(x.number)}${x.id===thisId?' <span class="tag">this '+(x.refund?'refund':'receipt')+'</span>':""}</td><td>${esc(x.payFor||"Payment")}</td><td>${esc(x.payMethod||"")}</td><td class="r tnum">${money(x.amount)}</td></tr>`).join("")}
+    ${list.map((x,i)=>`<tr class="${x.id===thisId?"this":""}${x.refund?" rf":""}"><td>${i+1}</td><td class="nw">${fmtShort(x.paidDate||x.date)}${x.paidTime?", "+fmtTime(x.paidTime):""}</td><td class="nw">${esc(x.number)}${x.id===thisId?' <span class="tag">this '+(x.refund?'refund':'receipt')+'</span>':""}</td><td>${esc(String(x.payFor||"Payment").replace(/\s*\(\d+(\.\d+)?%\)/g,""))}</td><td>${esc(x.payMethod||"")}</td><td class="r tnum">${money(x.amount)}</td></tr>`).join("")}
     <tr class="ph-sum"><td colspan="5">${list.some(x=>x.refund)?"Total paid (after refund)":"Total paid"}</td><td class="r tnum">${money(paid)}</td></tr>
     <tr class="ph-sum2"><td colspan="5">Booking total</td><td class="r tnum">${money(grand)}</td></tr>
     ${over?`<tr class="ph-bal overpaid"><td colspan="5">Overpaid</td><td class="r tnum">${money(over)}</td></tr>
@@ -1947,6 +1947,39 @@ function setSaveStatus(){
 }
 
 /* =================== price builder =================== */
+const DAYNAMES=["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+function dayTitle(s){const d=parseISO(s);return d?DAYNAMES[d.getDay()]+", "+fmtLong(s).toUpperCase():""}
+const TBC_NOTE="Event date and start time are TBC. Off-peak rates apply Mon–Fri; peak rates apply on weekends and public holidays.";
+function syncEventText(oD,oT){
+  const nD=current.eventDate||"",nT=current.eventTime||"";
+  if(oD===nD&&oT===nT)return;
+  let changedAny=false;
+  // option titles: "SATURDAY, 19 DECEMBER 2026 — 90-MINUTE SESSION"
+  const oldDay=dayTitle(oD),newDay=dayTitle(nD),oi=dayInfo(oD),ni=dayInfo(nD);
+  const plain=t=>/WEEKDAY \(MON–FRI\)|WEEKEND \(SAT–SUN\)/.test(t);
+  const both=current.options.some(o=>/WEEKDAY \(MON–FRI\)/.test(o.title))&&current.options.some(o=>/WEEKEND \(SAT–SUN\)/.test(o.title));
+  if(oD!==nD)current.options.forEach(o=>{
+    let t=o.title||"";
+    if(oldDay&&t.includes(oldDay))t=t.replace(oldDay,newDay||(oi&&oi.peak?"WEEKEND (SAT–SUN)":"WEEKDAY (MON–FRI)"));
+    else if(!oldDay&&newDay&&plain(t)&&!both)t=t.replace(/WEEKDAY \(MON–FRI\)|WEEKEND \(SAT–SUN\)/,newDay);
+    if(t!==o.title){o.title=t;changedAny=true}
+  });
+  // item 2nd line: "(40 pax, 19 December 2026, 01:00 PM)"
+  const oldTxt=[fmtEvent(oD,oT),fmtEvent(oD,""),"date and time TBC"].filter(Boolean), newTxt=nD?fmtEvent(nD,nT):"date and time TBC";
+  current.options.forEach(o=>o.items.forEach(it=>{
+    const m=String(it.detail||"").match(/^\((\d+) pax, (.+)\)$/);
+    if(m&&oldTxt.includes(m[2])&&m[2]!==newTxt){it.detail="("+m[1]+" pax, "+newTxt+")";changedAny=true}
+  }));
+  // "date TBC" note
+  if(oD!==nD){
+    const has=(current.notes||[]).indexOf(TBC_NOTE);
+    if(nD&&has>=0){current.notes.splice(has,1);changedAny=true}
+    else if(!nD&&oD&&has<0){current.notes=[TBC_NOTE].concat(current.notes||[]);changedAny=true}
+    if(changedAny)$("#fNotes").value=(current.notes||[]).join("\n");
+  }
+  if(changedAny)renderOptions();
+  if(oD&&nD&&oi&&ni&&oi.peak!==ni.peak&&current.options.length)toast("Event moved to a "+(ni.peak?"weekend / public holiday":"weekday")+" — prices are not changed. Press “Build packages” to update the rates.");
+}
 function dayInfo(s){
   const d=parseISO(s); if(!d)return null;
   const nx=new Date(d);nx.setDate(nx.getDate()+1);
@@ -3005,7 +3038,9 @@ function init(){
   });
 
   Object.keys(BIND).forEach(id=>$("#"+id).addEventListener("input",e=>{
+    const _oD=current.eventDate||"",_oT=current.eventTime||"";
     setP(current,BIND[id],e.target.value);
+    if((id==="fEventDate"||id==="fEventTime")&&current.type==="quotation")syncEventText(_oD,_oT);
     if(id==="fNumber")current._autoNo=false;
     if(id==="fDate"){
       if(current._autoNo&&!current.id){current.number=nextNumber(current.type,current.date);$("#fNumber").value=current.number}
