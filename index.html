@@ -973,6 +973,7 @@
               <div class="field"><label for="bRooms">Lounge rooms</label><select id="bRooms"><option value="auto">Auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="buyout">Buy out (whole venue)</option></select></div>
               <div class="field"><label for="bNonPlay">Non-players</label><input type="number" id="bNonPlay" min="0" value="0"></div>
               <div class="field"><label for="bExt">Extension</label><select id="bExt"><option value="0">None</option><option value="15">+15 min</option><option value="30">+30 min</option></select></div>
+              <div class="field"><label for="bEvPlan">Event planning</label><select id="bEvPlan"><option value="0">No</option><option value="1">Yes (add-on)</option></select></div>
             </div>
             <div class="row three" id="custRow" hidden>
               <div class="field"><label for="bCustMin">Session length (min)</label><input type="number" id="bCustMin" min="15" step="15" value="75"></div>
@@ -1367,7 +1368,7 @@ const DEFAULTS={
   bankName:"OCBC Bank (Malaysia) Berhad", accName:"ACTIVATE PBJ SDN. BHD.", accNo:"787-113001-4",
   quoPrefix:"ACT-QUO", invPrefix:"ACT-INV", startYear:new Date().getFullYear(), quoStart:1, invStart:1,
   issName:"Lyah", issPos:"Head of Sales and Marketing", validDays:7, payMethod:"Bank Transfer",
-  rates:{t60:{wd:[55,53],we:[65,63]}, t90:{wd:[75,73],we:[85,83]}, ind:{t60:{wd:59,we:69},t90:{wd:79,we:89}}, loungeOff:200, loungePeak:300, buyout:1100, nonPlay:15, ext15:15, ext30:30},
+  rates:{t60:{wd:[55,53],we:[65,63]}, t90:{wd:[75,73],we:[85,83]}, ind:{t60:{wd:59,we:69},t90:{wd:79,we:89}}, loungeOff:200, loungePeak:300, buyout:1100, nonPlay:15, ext15:15, ext30:30, evPlan:[100,150,200]},
   plv:3, rv:2, priceEffective:"2026-10-17", priceApprover:"Vishu (Store Manager)", recPrefix:"ACT-REC", recStart:1, coTin:"", coMsic:"", coActivity:"",
   priceList:[
     ["Tickets - 60-minute session (weekday)",55],["Tickets - 60-minute session (weekend)",65],
@@ -1379,7 +1380,8 @@ const DEFAULTS={
     ["Family Pack - 5 pax, 90-min (off-peak)",350],["Family Pack - 5 pax, 90-min (peak)",400],
     ["Non-Playing Entry",15],["15-min Extension (per pax)",15],["30-min Extension (per pax)",30],
     ["Birthday card e-invite",25],["Decorations (package)",250],["Goody bag",40],["Prize",258],
-    ["Public holiday surcharge (per hr)",100],["Store private event (per hr)",1100]
+    ["Public holiday surcharge (per hr)",100],["Store private event (per hr)",1100],
+    ["Event Planning (Add-on) - 15-40 pax",100],["Event Planning (Add-on) - 41-80 pax",150],["Event Planning (Add-on) - 81-120 pax",200]
   ],
   notes:["Event date and start time are TBC. Off-peak rates apply Mon–Fri; peak rates apply on weekends and public holidays.","Private Lounge is quoted at 1 room for 1 hour. Additional hours are charged at the same hourly rate."],
   payTerms:["The booking is confirmed after {deposit_pct}% of the deposit is made. The balance is to be made on the date of the event prior to gameplay and lounge access."],
@@ -1426,6 +1428,7 @@ function mergeSettings(src){
   if(!o.rates.ind)o.rates.ind=clone(DEFAULTS.rates.ind);
   if(!Array.isArray(o.priceList))o.priceList=clone(DEFAULTS.priceList);
   if((o.plv||1)<3){DEFAULTS.priceList.filter(x=>/^Family Pack/.test(x[0])).forEach(x=>{if(!o.priceList.some(q=>q[0]===x[0]))o.priceList.push(clone(x))});o.plv=3;}
+  if((o.plv||1)<4){DEFAULTS.priceList.filter(x=>/^Event Planning/.test(x[0])).forEach(x=>{if(!o.priceList.some(q=>q[0]===x[0]))o.priceList.push(clone(x))});o.plv=4;}
   if((o.rv||1)<2){o.rates.t60=clone(DEFAULTS.rates.t60);o.rates.t90=clone(DEFAULTS.rates.t90);
     DEFAULTS.priceList.slice(0,4).forEach(x=>{const q=o.priceList.find(y=>y[0]===x[0]);if(q)q[1]=x[1];});o.rv=2;}
   if((o.plv||1)<2){DEFAULTS.priceList.filter(x=>/individual/i.test(x[0])).forEach(x=>{if(!o.priceList.some(q=>q[0]===x[0]))o.priceList.push(clone(x))});o.plv=2;}
@@ -1958,10 +1961,11 @@ function readBuilder(){
   const mins=custom?Math.max(1,Math.round(num($("#bCustMin").value))):dur==="both"?90:+dur;
   const cwd=num($("#bCustWd").value), cwe=$("#bCustWe").value.trim();
   return {pax:Math.max(0,Math.round(num($("#bPax").value))),dur,mins,custom,cust:{wd:cwd,we:cwe===""?cwd:num(cwe)},pkg:$("#bPkg").value,day:$("#bDay").value,
-    lounge:Math.max(0,num($("#bLounge").value)),rooms:$("#bRooms").value,nonPlay:Math.max(0,Math.round(num($("#bNonPlay").value))),ext:num($("#bExt").value)};
+    lounge:Math.max(0,num($("#bLounge").value)),rooms:$("#bRooms").value,nonPlay:Math.max(0,Math.round(num($("#bNonPlay").value))),ext:num($("#bExt").value),evPlan:$("#bEvPlan").value==="1"};
 }
 function durB(b,m){return Object.assign({},b,{dur:String(m),mins:m,custom:false})}
 function rateB(b,peak){if(b.custom)return num(peak?b.cust.we:b.cust.wd);return ticketRate(b.dur, peak, b.pax, indiv(b))}
+function evPlanTier(pax){const r=(settings.rates.evPlan||DEFAULTS.rates.evPlan);return pax<=40?{lbl:"15-40 pax",rm:num(r[0])}:pax<=80?{lbl:"41-80 pax",rm:num(r[1])}:{lbl:"81-120 pax",rm:num(r[2])}}
 function roomsFor(lp){return lp<=40?1:lp<=60?2:3}
 const indiv=b=>b.pkg==="Individual"||(b.pax>0&&b.pax<15);
 function ticketRate(dur,peak,pax,ind){
@@ -1981,6 +1985,7 @@ function buildItems(b,peak,isInv){
     items.push({desc:"Lounge Rental - "+h+" hr(s), "+rooms+" room(s)",detail:"",unit:num(peak?settings.rates.loungePeak:settings.rates.loungeOff),qty:rooms*h,qtyLabel:rooms+" rm x "+h+" hr"});
   }
   if(b.nonPlay>0)items.push({desc:"Non-Playing Entry",detail:"",unit:num(settings.rates.nonPlay),qty:b.nonPlay,qtyLabel:""});
+  if(b.evPlan){const tp=evPlanTier(b.pax);items.push({desc:"Event Planning (Add-on) - "+tp.lbl,detail:"",unit:tp.rm,qty:1,qtyLabel:""});}
   return items;
 }
 function planBuild(){
@@ -2005,10 +2010,12 @@ function updateBuildPreview(){
   if(di&&b.day==="auto")parts.push(di.dn+" = "+di.why);
   if(b.lounge>0&&b.rooms==="buyout")parts.push("Venue buy-out × "+Math.ceil(b.lounge)+" hr (RM"+money(settings.rates.buyout)+"/hr)");
   else if(b.lounge>0)parts.push((b.rooms==="auto"?roomsFor(b.pax+b.nonPlay):b.rooms)+" lounge room(s) × "+Math.ceil(b.lounge)+" hr");
+  if(b.evPlan){const tp=evPlanTier(b.pax);parts.push("Event planning RM"+money(tp.rm)+" ("+tp.lbl+")");}
   $("#buildPreview").textContent=parts.join(" · ");
   const w=[];
   if(b.pax&&b.pax<15&&b.pkg!=="Individual")w.push("Below the 15-pax group minimum — individual (walk-in) rates are used.");
   if(b.pax>120)w.push("Above the 120-pax maximum group size.");
+  if(b.evPlan&&b.pax<15)w.push("Event planning add-on is for groups of 15–120 pax — the 15-40 pax price is used.");
   if(b.rooms==="buyout"&&!(b.lounge>0))w.push("Buy out chosen — enter the number of hours in Lounge hours.");
   if(b.lounge>0&&b.rooms!=="buyout"&&b.pax+b.nonPlay>85)w.push("Lounge pax ("+(b.pax+b.nonPlay)+") is above the 85-pax capacity of all 3 rooms.");
   if(b.pax>80&&b.rooms!=="buyout")w.push("Above 80 pax the venue closes to the public — consider choosing “Buy out (whole venue)” in Lounge rooms.");
@@ -3062,7 +3069,7 @@ function init(){
   });
 
   $("#bDur").addEventListener("change",()=>{$("#custRow").hidden=$("#bDur").value!=="custom"});
-  ["bPax","bDur","bPkg","bDay","bLounge","bRooms","bNonPlay","bExt","bCustMin","bCustWd","bCustWe"].forEach(id=>{$("#"+id).addEventListener("input",updateBuildPreview);$("#"+id).addEventListener("change",updateBuildPreview)});
+  ["bPax","bDur","bPkg","bDay","bLounge","bRooms","bNonPlay","bExt","bEvPlan","bCustMin","bCustWd","bCustWe"].forEach(id=>{$("#"+id).addEventListener("input",updateBuildPreview);$("#"+id).addEventListener("change",updateBuildPreview)});
   $("#buildBtn").addEventListener("click",runBuild);
 
   $("#saveBtn").addEventListener("click",saveClick);
