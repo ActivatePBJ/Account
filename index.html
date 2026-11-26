@@ -106,6 +106,12 @@
   .row.two{grid-template-columns:1fr 1fr}
   .row.three{grid-template-columns:repeat(3,1fr)}
   .row.four{grid-template-columns:repeat(4,1fr)}
+  .svc-box{margin:6px 0 10px;padding:10px 12px;border:1px dashed var(--line-strong);border-radius:10px}
+  .svc-box .svc-h{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px}
+  .svc-row{display:grid;grid-template-columns:170px minmax(0,1fr) 110px;gap:8px;align-items:center;margin-top:6px}
+  .svc-row .svc-n{font-size:13px;font-weight:600}
+  .svc-row input[type=number]{text-align:right}
+  @media (max-width:560px){.svc-row{grid-template-columns:1fr 110px}.svc-row .svc-n{grid-column:1 / -1}}
   @media (max-width:560px){.row.two,.row.three,.row.four{grid-template-columns:1fr 1fr}}
   @media (max-width:400px){.row.two,.row.three,.row.four{grid-template-columns:1fr}}
   input[type=text],input[type=number],input[type=date],input[type=time],input[type=datetime-local],input[type=email],input[type=tel],textarea,select{
@@ -975,6 +981,11 @@
               <div class="field"><label for="bExt">Extension</label><select id="bExt"><option value="0">None</option><option value="15">+15 min</option><option value="30">+30 min</option></select></div>
               <div class="field"><label for="bEvPlan">Event planning</label><select id="bEvPlan"><option value="0">No</option><option value="1">Yes (add-on)</option></select></div>
             </div>
+            <div class="svc-box" id="svcBox"><div class="svc-h">Extra services — type the description and total amount (leave empty if not needed)</div>
+                <div class="svc-row"><div class="svc-n">Food &amp; Beverage / Catering</div><input type="text" id="bFnbD" placeholder="e.g. Hi-tea buffet for 40 pax" aria-label="Food &amp; Beverage / Catering description"><input type="number" id="bFnbA" min="0" step="0.01" placeholder="RM" aria-label="Food &amp; Beverage / Catering amount (RM)"></div>
+                <div class="svc-row"><div class="svc-n">Photography</div><input type="text" id="bPhoD" placeholder="e.g. 2-hr event photographer, 100 edited photos" aria-label="Photography description"><input type="number" id="bPhoA" min="0" step="0.01" placeholder="RM" aria-label="Photography amount (RM)"></div>
+                <div class="svc-row"><div class="svc-n">DJ / PA System</div><input type="text" id="bDjD" placeholder="e.g. DJ + PA system with 2 mics, 3 hrs" aria-label="DJ / PA System description"><input type="number" id="bDjA" min="0" step="0.01" placeholder="RM" aria-label="DJ / PA System amount (RM)"></div>
+            </div>
             <div class="row three" id="custRow" hidden>
               <div class="field"><label for="bCustMin">Session length (min)</label><input type="number" id="bCustMin" min="15" step="15" value="75"></div>
               <div class="field"><label for="bCustWd">Weekday RM / pax</label><input type="number" id="bCustWd" min="0" step="0.01" placeholder="0.00"></div>
@@ -1381,7 +1392,8 @@ const DEFAULTS={
     ["Non-Playing Entry",15],["15-min Extension (per pax)",15],["30-min Extension (per pax)",30],
     ["Birthday card e-invite",25],["Decorations (package)",250],["Goody bag",40],["Prize",258],
     ["Public holiday surcharge (per hr)",100],["Store private event (per hr)",1100],
-    ["Event Planning (Add-on) - 15-40 pax",100],["Event Planning (Add-on) - 41-80 pax",150],["Event Planning (Add-on) - 81-120 pax",200]
+    ["Event Planning (Add-on) - 15-40 pax",100],["Event Planning (Add-on) - 41-80 pax",150],["Event Planning (Add-on) - 81-120 pax",200],
+    ["Food & Beverage / Catering",0],["Photography",0],["DJ / PA System",0]
   ],
   notes:["Event date and start time are TBC. Off-peak rates apply Mon–Fri; peak rates apply on weekends and public holidays.","Private Lounge is quoted at 1 room for 1 hour. Additional hours are charged at the same hourly rate."],
   payTerms:["The booking is confirmed after {deposit_pct}% of the deposit is made. The balance is to be made on the date of the event prior to gameplay and lounge access."],
@@ -1429,6 +1441,7 @@ function mergeSettings(src){
   if(!Array.isArray(o.priceList))o.priceList=clone(DEFAULTS.priceList);
   if((o.plv||1)<3){DEFAULTS.priceList.filter(x=>/^Family Pack/.test(x[0])).forEach(x=>{if(!o.priceList.some(q=>q[0]===x[0]))o.priceList.push(clone(x))});o.plv=3;}
   if((o.plv||1)<4){DEFAULTS.priceList.filter(x=>/^Event Planning/.test(x[0])).forEach(x=>{if(!o.priceList.some(q=>q[0]===x[0]))o.priceList.push(clone(x))});o.plv=4;}
+  if((o.plv||1)<5){DEFAULTS.priceList.filter(x=>/^(Food & Beverage|Photography|DJ \/ PA)/.test(x[0])).forEach(x=>{if(!o.priceList.some(q=>q[0]===x[0]))o.priceList.push(clone(x))});o.plv=5;}
   if((o.rv||1)<2){o.rates.t60=clone(DEFAULTS.rates.t60);o.rates.t90=clone(DEFAULTS.rates.t90);
     DEFAULTS.priceList.slice(0,4).forEach(x=>{const q=o.priceList.find(y=>y[0]===x[0]);if(q)q[1]=x[1];});o.rv=2;}
   if((o.plv||1)<2){DEFAULTS.priceList.filter(x=>/individual/i.test(x[0])).forEach(x=>{if(!o.priceList.some(q=>q[0]===x[0]))o.priceList.push(clone(x))});o.plv=2;}
@@ -1994,10 +2007,11 @@ function readBuilder(){
   const mins=custom?Math.max(1,Math.round(num($("#bCustMin").value))):dur==="both"?90:+dur;
   const cwd=num($("#bCustWd").value), cwe=$("#bCustWe").value.trim();
   return {pax:Math.max(0,Math.round(num($("#bPax").value))),dur,mins,custom,cust:{wd:cwd,we:cwe===""?cwd:num(cwe)},pkg:$("#bPkg").value,day:$("#bDay").value,
-    lounge:Math.max(0,num($("#bLounge").value)),rooms:$("#bRooms").value,nonPlay:Math.max(0,Math.round(num($("#bNonPlay").value))),ext:num($("#bExt").value),evPlan:$("#bEvPlan").value==="1"};
+    lounge:Math.max(0,num($("#bLounge").value)),rooms:$("#bRooms").value,nonPlay:Math.max(0,Math.round(num($("#bNonPlay").value))),ext:num($("#bExt").value),evPlan:$("#bEvPlan").value==="1",svc:SVC_CATS.map(c=>({cat:c.n,d:$("#b"+c.k+"D").value.trim(),a:Math.max(0,num($("#b"+c.k+"A").value))})).filter(x=>x.d||x.a>0)};
 }
 function durB(b,m){return Object.assign({},b,{dur:String(m),mins:m,custom:false})}
 function rateB(b,peak){if(b.custom)return num(peak?b.cust.we:b.cust.wd);return ticketRate(b.dur, peak, b.pax, indiv(b))}
+const SVC_CATS=[{k:"Fnb",n:"Food & Beverage / Catering"},{k:"Pho",n:"Photography"},{k:"Dj",n:"DJ / PA System"}];
 function evPlanTier(pax){const r=(settings.rates.evPlan||DEFAULTS.rates.evPlan);return pax<=40?{lbl:"15-40 pax",rm:num(r[0])}:pax<=80?{lbl:"41-80 pax",rm:num(r[1])}:{lbl:"81-120 pax",rm:num(r[2])}}
 function roomsFor(lp){return lp<=40?1:lp<=60?2:3}
 const indiv=b=>b.pkg==="Individual"||(b.pax>0&&b.pax<15);
@@ -2019,6 +2033,7 @@ function buildItems(b,peak,isInv){
   }
   if(b.nonPlay>0)items.push({desc:"Non-Playing Entry",detail:"",unit:num(settings.rates.nonPlay),qty:b.nonPlay,qtyLabel:""});
   if(b.evPlan){const tp=evPlanTier(b.pax);items.push({desc:"Event Planning (Add-on) - "+tp.lbl,detail:"",unit:tp.rm,qty:1,qtyLabel:""});}
+  (b.svc||[]).forEach(x=>items.push({desc:x.cat,detail:x.d,unit:x.a,qty:1,qtyLabel:""}));
   return items;
 }
 function planBuild(){
@@ -2044,10 +2059,12 @@ function updateBuildPreview(){
   if(b.lounge>0&&b.rooms==="buyout")parts.push("Venue buy-out × "+Math.ceil(b.lounge)+" hr (RM"+money(settings.rates.buyout)+"/hr)");
   else if(b.lounge>0)parts.push((b.rooms==="auto"?roomsFor(b.pax+b.nonPlay):b.rooms)+" lounge room(s) × "+Math.ceil(b.lounge)+" hr");
   if(b.evPlan){const tp=evPlanTier(b.pax);parts.push("Event planning RM"+money(tp.rm)+" ("+tp.lbl+")");}
+  (b.svc||[]).forEach(x=>parts.push(x.cat+" RM"+money(x.a)));
   $("#buildPreview").textContent=parts.join(" · ");
   const w=[];
   if(b.pax&&b.pax<15&&b.pkg!=="Individual")w.push("Below the 15-pax group minimum — individual (walk-in) rates are used.");
   if(b.pax>120)w.push("Above the 120-pax maximum group size.");
+  (b.svc||[]).filter(x=>!(x.a>0)).forEach(x=>w.push(x.cat+": enter the amount (RM) — it will show RM0.00 until you do."));
   if(b.evPlan&&b.pax<15)w.push("Event planning add-on is for groups of 15–120 pax — the 15-40 pax price is used.");
   if(b.rooms==="buyout"&&!(b.lounge>0))w.push("Buy out chosen — enter the number of hours in Lounge hours.");
   if(b.lounge>0&&b.rooms!=="buyout"&&b.pax+b.nonPlay>85)w.push("Lounge pax ("+(b.pax+b.nonPlay)+") is above the 85-pax capacity of all 3 rooms.");
@@ -2141,6 +2158,7 @@ async function saveCurrent(){
 async function guardDirty(){if(!dirty)return true;return askConfirm("You have unsaved changes on "+esc(current.number)+". Discard them?","Discard")}
 async function newDoc(type){
   if(!(await guardDirty()))return;
+  ["bFnbD","bFnbA","bPhoD","bPhoA","bDjD","bDjA"].forEach(i=>{const el=$("#"+i);if(el)el.value=""});
   current=blankDoc(type||current.type);dirty=false;fillForm();renderPreview();setSaveStatus();switchTab("create");window.scrollTo({top:0});
 }
 function setType(type){
@@ -2872,6 +2890,7 @@ const CATS=[
   {k:"lounge",n:"Private lounge",c:"#f0a020"},
   {k:"buyout",n:"Venue buy-out / private event",c:"#e5487a"},
   {k:"ext",n:"Extensions",c:"#2fbf71"},
+  {k:"svc",n:"Event services (F&B, photo, DJ, planning)",c:"#ff7a59"},
   {k:"other",n:"Others (entry, decor, add-ons)",c:"#b0a48a"}
 ];
 function catOf(desc,fallbackMins){
@@ -2881,6 +2900,7 @@ function catOf(desc,fallbackMins){
   if(/lounge/i.test(d))return "lounge";
   if(/extension/i.test(d))return "ext";
   if(/non-?playing/i.test(d))return "other";
+  if(/food|beverage|catering|photograph|\bdj\b|pa system|event planning/i.test(d))return "svc";
   if(/ticket|session|experience|game ?play/i.test(d)){
     const m=d.match(/(\d+)\s*-?\s*min/i), mins=m?+m[1]:num(fallbackMins);
     return mins===60?"t60":mins===90?"t90":"tOther";
@@ -3104,7 +3124,7 @@ function init(){
   });
 
   $("#bDur").addEventListener("change",()=>{$("#custRow").hidden=$("#bDur").value!=="custom"});
-  ["bPax","bDur","bPkg","bDay","bLounge","bRooms","bNonPlay","bExt","bEvPlan","bCustMin","bCustWd","bCustWe"].forEach(id=>{$("#"+id).addEventListener("input",updateBuildPreview);$("#"+id).addEventListener("change",updateBuildPreview)});
+  ["bPax","bDur","bPkg","bDay","bLounge","bRooms","bNonPlay","bExt","bEvPlan","bFnbD","bFnbA","bPhoD","bPhoA","bDjD","bDjA","bCustMin","bCustWd","bCustWe"].forEach(id=>{$("#"+id).addEventListener("input",updateBuildPreview);$("#"+id).addEventListener("change",updateBuildPreview)});
   $("#buildBtn").addEventListener("click",runBuild);
 
   $("#saveBtn").addEventListener("click",saveClick);
