@@ -215,6 +215,9 @@
   table.pkg{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;break-inside:avoid;page-break-inside:avoid}
   table.pkg th,table.pkg td{border:1px solid #999;padding:3px 4px;vertical-align:middle}
   table.pkg col.c1{width:32%} table.pkg col.c2{width:18.5%} table.pkg col.c3{width:24.75%} table.pkg col.c4{width:24.75%}
+  .pkg tr.band.cat th{font-size:12px;padding:4px}
+  .pkg tr.catsub td.slab,.pkg tr.catsub td.sval{font-weight:600;color:#444;font-size:11px}
+  .item-cat{margin:10px 0 2px;padding-top:8px;border-top:2px solid var(--line-strong);font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
   .pkg .band th{background:#3e5bf2;color:#fff;text-align:left;font-size:13.5px;font-weight:700;padding:5px 4px;text-transform:uppercase}
   .pkg .cols th{background:#e5e9ff;color:#000;font-size:10px;font-weight:700;text-transform:uppercase;text-align:right}
   .pkg .cols th:first-child{text-align:left}
@@ -1701,8 +1704,13 @@ function headHTML(){
     <div class="co"><b>${esc(settings.coName)}</b> (Company No. ${esc(settings.coReg)})</div>
     <div class="addr">${esc(settings.coAddr)}</div></div>`;
 }
+function isSvcItem(it){return /^\s*(food\s*&\s*beverage|catering|photograph|dj\b|event planning)/i.test(String(it&&it.desc||""))}
 function itemRows(o){
-  const rows=(o.items||[]).filter(it=>it.desc||it.detail||num(it.unit)||num(it.qty));
+  const all=(o.items||[]).filter(it=>it.desc||it.detail||num(it.unit)||num(it.qty)), svc=all.filter(isSvcItem), rows=all.filter(it=>!isSvcItem(it));
+  if(svc.length)return itemRowsHTML(rows)+`<tr class="band cat"><th colspan="4">ADD-ON SERVICES</th></tr>`+itemRowsHTML(svc);
+  return itemRowsHTML(rows);
+}
+function itemRowsHTML(rows){
   if(!rows.length)return `<tr><td class="it ph">Item</td><td class="num ph">0.00</td><td class="num ph">0</td><td class="num ph">0.00</td></tr>`;
   return rows.map(it=>`<tr><td class="it">${esc(it.desc)}${it.detail?"<br>"+esc(it.detail):""}</td><td class="num tnum">${money(it.unit)}</td><td class="num tnum">${esc(it.qtyLabel||String(num(it.qty)))}</td><td class="num tnum">${money(itemGross(it))}</td></tr>${itemDisc(it)>0?`<tr class="idisc"><td class="it">Less: discount${discLabel(it)?" ("+discLabel(it)+")":""}</td><td class="num"></td><td class="num"></td><td class="num tnum">-${money(itemDisc(it))}</td></tr>`:""}`).join("");
 }
@@ -1710,7 +1718,8 @@ function pkgTable(d,o,isInv){
   const t=optTotals(o,d.deposit), dep=num(d.deposit);
   let extra="";
   if(t.disc>0)extra+=`<tr class="disc"><td class="blank"></td><td class="blank"></td><td class="dl2">${num(o.discPct)>0?"STREAK DISCOUNT "+num(o.discPct)+"% (RM)":"DISCOUNT (RM)"}</td><td class="dv2 tnum">-${money(t.disc)}</td></tr>`;
-  const sub=`<tr><td class="blank"></td><td class="blank"></td><td class="slab">SUBTOTAL (RM)</td><td class="sval tnum">${money(t.sub)}</td></tr>${extra}`;
+  const svcT=(o.items||[]).filter(isSvcItem).reduce((a,it)=>a+lineTotal(it),0), catSub=svcT>0?`<tr class="catsub"><td class="blank"></td><td class="blank"></td><td class="slab">Games &amp; venue (RM)</td><td class="sval tnum">${money(t.sub-svcT)}</td></tr><tr class="catsub"><td class="blank"></td><td class="blank"></td><td class="slab">Add-on services (RM)</td><td class="sval tnum">${money(svcT)}</td></tr>`:"";
+  const sub=catSub+`<tr><td class="blank"></td><td class="blank"></td><td class="slab">SUBTOTAL (RM)</td><td class="sval tnum">${money(t.sub)}</td></tr>${extra}`;
   const grand=`<tr class="grand"><th colspan="2">GRAND TOTAL</th><td>GRAND TOTAL (RM)</td><td class="gval tnum">${money(t.grand)}</td></tr>`;
   let after="";
   if(!isInv&&dep>0){
@@ -1902,7 +1911,7 @@ function renderOptions(){
         ${!isInv&&current.options.length>1?`<button class="icon-btn" type="button" data-act="rmOpt" title="Remove this option" aria-label="Remove option">&times;</button>`:""}</div>
       <div class="opt-b">
         <div class="items-head"><div>Item</div><div class="r">Unit (RM)</div><div class="r">Qty</div><div class="r">Discount</div><div class="r">Total</div><div></div></div>
-        ${o.items.map((it,ii)=>`<div class="item" data-i="${ii}">
+        ${o.items.map((it,ii)=>`${isSvcItem(it)&&(ii===0||!isSvcItem(o.items[ii-1]))?'<div class="item-cat">Add-on services</div>':""}<div class="item" data-i="${ii}">
           <div class="stack main"><input type="text" data-k="desc" value="${esc(it.desc)}" placeholder="Tickets - 90-minute session" aria-label="Item">
             <input type="text" class="sub" data-k="detail" value="${esc(it.detail)}" placeholder="2nd line, e.g. (30 pax, date and time TBC)" aria-label="Item detail"></div>
           <div class="stack"><input type="number" data-k="unit" value="${num(it.unit)}" min="0" step="0.01" aria-label="Unit price"></div>
@@ -2357,7 +2366,7 @@ function waText(d){
     if(d.eventDate)L.push("Event: "+fmtEvent(d.eventDate,d.eventTime));
     d.options.forEach(o=>{
       const t=optTotals(o,d.deposit);L.push("");L.push("*"+(o.title||"Package")+"*");
-      o.items.filter(it=>it.desc).forEach(it=>L.push("• "+it.desc+(it.detail?" "+it.detail:"")+": RM"+money(it.unit)+" × "+(it.qtyLabel||num(it.qty))+" = RM"+money(itemGross(it))+(itemDisc(it)>0?" − discount"+(discLabel(it)?" "+discLabel(it):"")+" RM"+money(itemDisc(it))+" = RM"+money(lineTotal(it)):"")));
+      o.items.filter(it=>it.desc).sort((a,b)=>isSvcItem(a)-isSvcItem(b)).forEach((it,ix,arr)=>L.push((isSvcItem(it)&&(ix===0||!isSvcItem(arr[ix-1]))?"_Add-on services:_\n":"")+"• "+it.desc+(it.detail?" "+it.detail:"")+": RM"+money(it.unit)+" × "+(it.qtyLabel||num(it.qty))+" = RM"+money(itemGross(it))+(itemDisc(it)>0?" − discount"+(discLabel(it)?" "+discLabel(it):"")+" RM"+money(itemDisc(it))+" = RM"+money(lineTotal(it)):"")));
       if(t.disc>0)L.push((num(o.discPct)>0?"Streak discount "+num(o.discPct)+"%":"Discount")+": -RM"+money(t.disc));
       L.push("Grand total: *RM"+money(t.grand)+"*");
       if(num(d.deposit)>0)L.push((num(d.deposit)>=100?"Full payment":"Deposit ("+num(d.deposit)+"%)")+": RM"+money(t.dep));
